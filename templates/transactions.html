@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Transactions - Finance Manager{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Transactions</h2>
+  <a href="{% url 'transaction_add' %}" class="btn btn-primary">+ Add Transaction</a>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <a href="{% url 'transactions_month' prev_month.year prev_month.month %}" class="btn btn-outline-secondary">&larr; Prev</a>
+      <h4 class="mb-0">{{ month }}/{{ year }}</h4>
+      <a href="{% url 'transactions_month' next_month.year next_month.month %}" class="btn btn-outline-secondary">Next &rarr;</a>
+    </div>
+    <div class="row text-center mt-3">
+      <div class="col">
+        <small class="text-success">+{{ month_income|floatformat:2 }}</small>
+      </div>
+      <div class="col">
+        <small class="text-danger">-{{ month_expense|floatformat:2 }}</small>
+      </div>
+      <div class="col">
+        <small class="{% if month_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ month_balance|floatformat:2 }}
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for day, day_data in transactions_by_day.items %}
+<div class="card mb-2">
+  <div class="card-body day-header p-2" onclick="window.location='{% url 'transaction_add_day' year month day.day %}'">
+    <div class="d-flex justify-content-between align-items-center">
+      <strong>{{ day|date:"l, M d" }}</strong>
+      <span class="{% if day_data.day_total >= 0 %}text-success{% else %}text-danger{% endif %}">
+        {{ day_data.day_total|floatformat:2 }}
+      </span>
+    </div>
+  </div>
+  {% for t in day_data.transactions %}
+  <div class="card-body border-top py-2">
+    <a href="{% url 'transaction_edit' t.pk %}" class="transaction-link d-flex justify-content-between align-items-center">
+      <div>
+        <span class="badge bg-{% if t.type == 'REFILL' %}success{% elif t.type == 'WASTE' %}danger{% else %}info{% endif %}">
+          {{ t.get_type_display }}
+        </span>
+        {% if t.category %}{{ t.category }}{% endif %}{% if t.description %}<small class="text-muted">{{ t.description }}</small>{% endif %}
+        <br />
+        <small class="text-muted">
+          {% if t.from_asset %}&rarr; {{ t.from_asset.name }}{% endif %}{% if t.to_asset %}&larr; {{ t.to_asset.name }}{% endif %}
+        </small>
+      </div>
+      <div class="text-end">
+        <strong>{{ t.amount|floatformat:2 }}</strong>
+        <small>{{ t.currency }}</small>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% empty %}
+<div class="text-center text-muted py-5">
+  <p>No transactions this month</p>
+  <a href="{% url 'transaction_add' %}" class="btn btn-primary">Add your first transaction</a>
+</div>
+{% endfor %}
+{% endblock %}
