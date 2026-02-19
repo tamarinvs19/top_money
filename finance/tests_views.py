@@ -4,7 +4,7 @@ from django.urls import reverse
 from decimal import Decimal
 from datetime import datetime
 
-from finance.models import Asset, Transaction, AssetType, TransactionType
+from finance.models import BankCardAsset, Transaction, AssetType, TransactionType, CashAsset
 
 
 class AuthViewsTest(TestCase):
@@ -60,7 +60,7 @@ class TransactionViewsTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = Asset.objects.create(
+        self.asset = BankCardAsset.objects.create(
             user=self.user,
             name='Test Card',
             type=AssetType.BANK_CARD,
@@ -160,7 +160,7 @@ class TransactionViewsTest(TestCase):
     
     def test_transaction_edit_other_user_forbidden(self):
         other_user = User.objects.create_user(username='other', password='otherpass')
-        other_asset = Asset.objects.create(
+        other_asset = BankCardAsset.objects.create(
             user=other_user,
             name='Other Card',
             type=AssetType.BANK_CARD,
@@ -191,7 +191,7 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, 'Assets')
     
     def test_assets_list_with_data(self):
-        Asset.objects.create(
+        BankCardAsset.objects.create(
             user=self.user,
             name='Test Card',
             type=AssetType.BANK_CARD,
@@ -203,9 +203,9 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, 'Test Card')
     
     def test_assets_list_grouped_by_type(self):
-        Asset.objects.create(user=self.user, name='Card1', type=AssetType.BANK_CARD, currency='RUB', balance=Decimal('1000'))
-        Asset.objects.create(user=self.user, name='Card2', type=AssetType.BANK_CARD, currency='RUB', balance=Decimal('2000'))
-        Asset.objects.create(user=self.user, name='Cash', type=AssetType.CASH, currency='RUB', balance=Decimal('500'))
+        BankCardAsset.objects.create(user=self.user, name='Card1', type=AssetType.BANK_CARD, currency='RUB', balance=Decimal('1000'))
+        BankCardAsset.objects.create(user=self.user, name='Card2', type=AssetType.BANK_CARD, currency='RUB', balance=Decimal('2000'))
+        CashAsset.objects.create(user=self.user, name='Cash', type=AssetType.CASH, currency='RUB', balance=Decimal('500'))
         
         response = self.client.get(reverse('assets'))
         self.assertContains(response, 'BANK_CARD')
@@ -214,8 +214,8 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, '500')   # total for CASH
     
     def test_assets_total_balance(self):
-        Asset.objects.create(user=self.user, name='Card1', type=AssetType.BANK_CARD, currency='RUB', balance=Decimal('1000'))
-        Asset.objects.create(user=self.user, name='Cash', type=AssetType.CASH, currency='RUB', balance=Decimal('500'))
+        BankCardAsset.objects.create(user=self.user, name='Card1', type=AssetType.BANK_CARD, currency='RUB', balance=Decimal('1000'))
+        CashAsset.objects.create(user=self.user, name='Cash', type=AssetType.CASH, currency='RUB', balance=Decimal('500'))
         
         response = self.client.get(reverse('assets'))
         self.assertContains(response, 'Total Balance')
@@ -239,7 +239,7 @@ class AssetViewsTest(TestCase):
         self.assertRedirects(response, reverse('assets'))
     
     def test_asset_edit_get(self):
-        asset = Asset.objects.create(
+        asset = BankCardAsset.objects.create(
             user=self.user,
             name='Test Card',
             type=AssetType.BANK_CARD,
@@ -253,7 +253,7 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, 'Test Card')
     
     def test_asset_edit_post(self):
-        asset = Asset.objects.create(
+        asset = BankCardAsset.objects.create(
             user=self.user,
             name='Test Card',
             type=AssetType.BANK_CARD,
@@ -276,7 +276,7 @@ class AssetViewsTest(TestCase):
     
     def test_asset_edit_other_user_forbidden(self):
         other_user = User.objects.create_user(username='other', password='otherpass')
-        asset = Asset.objects.create(
+        asset = BankCardAsset.objects.create(
             user=other_user,
             name='Other Card',
             type=AssetType.BANK_CARD,
@@ -291,7 +291,7 @@ class TransactionMonthNavigationTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = Asset.objects.create(
+        self.asset = BankCardAsset.objects.create(
             user=self.user,
             name='Test Card',
             type=AssetType.BANK_CARD,
@@ -324,7 +324,7 @@ class TransactionFormFieldsTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = Asset.objects.create(
+        self.asset = BankCardAsset.objects.create(
             user=self.user,
             name='Test Card',
             type=AssetType.BANK_CARD,
