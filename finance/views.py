@@ -1,3 +1,5 @@
+from django.utils import timezone
+from django.utils.timezone import make_aware
 from datetime import datetime, timedelta
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
@@ -30,7 +32,7 @@ def transactions(request, year=None, month=None):
     if month is None:
         month = today.month
     
-    current_date = datetime(int(year), int(month), 1)
+    current_date = make_aware(datetime(int(year), int(month), 1))
     
     prev_month = current_date - timedelta(days=1)
     next_month = current_date + timedelta(days=31)
@@ -39,11 +41,11 @@ def transactions(request, year=None, month=None):
     start_date = current_date
     end_date = current_date.replace(day=1, month=int(month) + 1) if int(month) < 12 else current_date.replace(year=int(year)+1, month=1)
     if int(month) == 12:
-        end_date = datetime(int(year) + 1, 1, 1) - timedelta(seconds=1)
+        end_date = make_aware(datetime(int(year) + 1, 1, 1)) - timedelta(seconds=1)
     else:
         from calendar import monthrange
         _, days = monthrange(int(year), int(month))
-        end_date = datetime(int(year), int(month), days, 23, 59, 59)
+        end_date = make_aware(datetime(int(year), int(month), days, 23, 59, 59))
     
     transactions_list = Transaction.objects.filter(
         user=request.user,
@@ -99,9 +101,9 @@ def transactions(request, year=None, month=None):
 def transaction_add(request, year=None, month=None, day=None):
     initial_date = None
     if year and month and day:
-        initial_date = datetime(int(year), int(month), int(day))
+        initial_date = make_aware(datetime(int(year), int(month), int(day)))
     elif year and month:
-        initial_date = datetime(int(year), int(month), 1)
+        initial_date = make_aware(datetime(int(year), int(month), 1))
     else:
         initial_date = timezone.now()
     
@@ -113,7 +115,7 @@ def transaction_add(request, year=None, month=None, day=None):
         currency = request.POST.get('currency')
         category = request.POST.get('category')
         description = request.POST.get('description')
-        date = datetime.strptime(request.POST.get('date'), '%Y-%m-%d')
+        date = make_aware(datetime.strptime(request.POST.get('date'), '%Y-%m-%d'))
         
         from_asset_id = request.POST.get('from_asset')
         to_asset_id = request.POST.get('to_asset')
@@ -150,7 +152,7 @@ def transaction_edit(request, pk):
         transaction.currency = request.POST.get('currency')
         transaction.category = request.POST.get('category')
         transaction.description = request.POST.get('description')
-        transaction.date = datetime.strptime(request.POST.get('date'), '%Y-%m-%d')
+        transaction.date = make_aware(datetime.strptime(request.POST.get('date'), '%Y-%m-%d'))
         
         from_asset_id = request.POST.get('from_asset')
         to_asset_id = request.POST.get('to_asset')

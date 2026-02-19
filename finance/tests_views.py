@@ -1,8 +1,9 @@
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.utils import timezone
 from decimal import Decimal
-from datetime import datetime
+from datetime import timedelta
 
 from finance.models import Asset, BankCardAsset, Transaction, AssetType, TransactionType, CashAsset
 
@@ -87,7 +88,7 @@ class TransactionViewsTest(TestCase):
             currency='RUB',
             to_asset=self.asset,
             category='Salary',
-            date=datetime.now()
+            date=timezone.now()
         )
         response = self.client.get(reverse('transactions'))
         self.assertContains(response, '5000.00')
@@ -128,7 +129,7 @@ class TransactionViewsTest(TestCase):
             amount=Decimal('1000.00'),
             currency='RUB',
             to_asset=self.asset,
-            date=datetime.now()
+            date=timezone.now()
         )
         url = reverse('transaction_edit', args=[transaction.pk])
         response = self.client.get(url)
@@ -142,7 +143,7 @@ class TransactionViewsTest(TestCase):
             amount=Decimal('1000.00'),
             currency='RUB',
             to_asset=self.asset,
-            date=datetime.now()
+            date=timezone.now()
         )
         url = reverse('transaction_edit', args=[transaction.pk])
         response = self.client.post(url, {
@@ -172,7 +173,7 @@ class TransactionViewsTest(TestCase):
             amount=Decimal('1000.00'),
             currency='RUB',
             to_asset=other_asset,
-            date=datetime.now()
+            date=timezone.now()
         )
         url = reverse('transaction_edit', args=[transaction.pk])
         response = self.client.get(url)
@@ -324,8 +325,7 @@ class TransactionMonthNavigationTest(TestCase):
         self.client.login(username='testuser', password='testpass123')
     
     def test_prev_month_navigation(self):
-        from datetime import timedelta
-        now = datetime.now()
+        now = timezone.now()
         prev_month = now - timedelta(days=1)
         
         Transaction.objects.create(
