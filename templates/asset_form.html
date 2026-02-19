@@ -32,6 +32,83 @@
             <label class="form-label">Balance</label>
             <input type="number" step="0.01" name="balance" class="form-control" value="{{ asset.balance|floatformat:2|default:'0' }}" />
           </div>
+
+          <div id="cashFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Location</label>
+              <input type="text" name="location" class="form-control" value="{{ asset.location|default:'' }}" />
+            </div>
+          </div>
+
+          <div id="bankCardFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Bank Name</label>
+              <input type="text" name="bank_name" class="form-control" value="{{ asset.bank_name|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Last 4 Digits</label>
+              <input type="text" name="last_4_digits" class="form-control" maxlength="4" value="{{ asset.last_4_digits|default:'' }}" />
+            </div>
+          </div>
+
+          <div id="depositFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Interest Rate (%)</label>
+              <input type="number" step="0.01" name="interest_rate" class="form-control" value="{{ asset.interest_rate|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Term (months)</label>
+              <input type="number" name="term_months" class="form-control" value="{{ asset.term_months|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Renewal Date</label>
+              <input type="date" name="renewal_date" class="form-control" value="{{ asset.renewal_date|default:'' }}" />
+            </div>
+            <div class="mb-3 form-check">
+              <input type="checkbox" name="is_capitalized" class="form-check-input" id="isCapitalized" {% if asset.is_capitalized %}checked{% endif %} />
+              <label class="form-check-label" for="isCapitalized">Interest Capitalized</label>
+            </div>
+          </div>
+
+          <div id="creditCardFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Credit Limit</label>
+              <input type="number" step="0.01" name="credit_limit" class="form-control" value="{{ asset.credit_limit|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Grace Period (days)</label>
+              <input type="number" name="grace_period_days" class="form-control" value="{{ asset.grace_period_days|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Last 4 Digits</label>
+              <input type="text" name="last_4_digits" class="form-control" maxlength="4" value="{{ asset.last_4_digits|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Billing Day</label>
+              <input type="number" name="billing_day" class="form-control" min="1" max="31" value="{{ asset.billing_day|default:'' }}" />
+            </div>
+          </div>
+
+          <div id="brokerageFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Broker Name</label>
+              <input type="text" name="broker_name" class="form-control" value="{{ asset.broker_name|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Account Number</label>
+              <input type="text" name="account_number" class="form-control" value="{{ asset.account_number|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Account Type</label>
+              <select name="brokerage_account_type" class="form-select">
+                <option value="" {% if not asset.brokerage_account_type %}selected{% endif %}>-- Select --</option>
+                {% for value, label in brokerage_account_types %}
+                <option value="{{ value }}" {% if asset.brokerage_account_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
           {% if asset %}
           <div class="mb-3 form-check">
             <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {% if asset.is_active %}checked{% endif %} />
@@ -47,4 +124,32 @@
     </div>
   </div>
 </div>
+
+<script>
+function toggleFields() {
+  var type = document.getElementById('typeSelect').value;
+  
+  document.getElementById('cashFields').style.display = 'none';
+  document.getElementById('bankCardFields').style.display = 'none';
+  document.getElementById('depositFields').style.display = 'none';
+  document.getElementById('creditCardFields').style.display = 'none';
+  document.getElementById('brokerageFields').style.display = 'none';
+  
+  if (type === 'CASH') {
+    document.getElementById('cashFields').style.display = 'block';
+  } else if (type === 'BANK_CARD') {
+    document.getElementById('bankCardFields').style.display = 'block';
+  } else if (type === 'DEPOSIT') {
+    document.getElementById('depositFields').style.display = 'block';
+  } else if (type === 'CREDIT_CARD') {
+    document.getElementById('creditCardFields').style.display = 'block';
+  } else if (type === 'BROKERAGE') {
+    document.getElementById('brokerageFields').style.display = 'block';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  toggleFields();
+});
+</script>
 {% endblock %}

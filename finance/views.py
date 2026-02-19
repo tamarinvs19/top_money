@@ -6,7 +6,8 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
-from finance.models import Asset, Transaction, AssetType, TransactionType
+from finance.models import Asset, Transaction, AssetType, TransactionType, BrokerageAccountType
+from finance.models import CashAsset, BankCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset
 
 
 def signup(request):
@@ -195,25 +196,93 @@ def asset_add(request):
         asset_type = request.POST.get('type')
         currency = request.POST.get('currency')
         balance = Decimal(request.POST.get('balance', '0'))
-        
-        asset = Asset.objects.create(
-            user=request.user,
-            name=name,
-            type=asset_type,
-            currency=currency,
-            balance=balance,
-        )
+
+        if asset_type == AssetType.CASH:
+            asset = CashAsset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                balance=balance,
+                location=request.POST.get('location', ''),
+            )
+        elif asset_type == AssetType.BANK_CARD:
+            asset = BankCardAsset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                balance=balance,
+                bank_name=request.POST.get('bank_name', ''),
+                last_4_digits=request.POST.get('last_4_digits', ''),
+            )
+        elif asset_type == AssetType.DEPOSIT:
+            renewal_date = request.POST.get('renewal_date')
+            asset = DepositAsset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                balance=balance,
+                interest_rate=request.POST.get('interest_rate') or None,
+                term_months=request.POST.get('term_months') or None,
+                renewal_date=renewal_date if renewal_date else None,
+                is_capitalized=request.POST.get('is_capitalized') == 'on',
+            )
+        elif asset_type == AssetType.CREDIT_CARD:
+            asset = CreditCardAsset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                balance=balance,
+                credit_limit=request.POST.get('credit_limit') or None,
+                grace_period_days=request.POST.get('grace_period_days') or None,
+                last_4_digits=request.POST.get('last_4_digits', ''),
+                billing_day=request.POST.get('billing_day') or None,
+            )
+        elif asset_type == AssetType.BROKERAGE:
+            asset = BrokerageAsset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                balance=balance,
+                broker_name=request.POST.get('broker_name', ''),
+                account_number=request.POST.get('account_number', ''),
+                brokerage_account_type=request.POST.get('brokerage_account_type', ''),
+            )
+        else:
+            asset = Asset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                balance=balance,
+            )
         
         return redirect('assets')
     
     return render(request, 'asset_form.html', {
         'asset_types': AssetType.choices,
+        'brokerage_account_types': BrokerageAccountType.choices,
     })
 
 
 @login_required
 def asset_edit(request, pk):
     asset = get_object_or_404(Asset, pk=pk, user=request.user)
+    
+    if asset.type == AssetType.CASH:
+        asset = get_object_or_404(CashAsset, pk=pk)
+    elif asset.type == AssetType.BANK_CARD:
+        asset = get_object_or_404(BankCardAsset, pk=pk)
+    elif asset.type == AssetType.DEPOSIT:
+        asset = get_object_or_404(DepositAsset, pk=pk)
+    elif asset.type == AssetType.CREDIT_CARD:
+        asset = get_object_or_404(CreditCardAsset, pk=pk)
+    elif asset.type == AssetType.BROKERAGE:
+        asset = get_object_or_404(BrokerageAsset, pk=pk)
     
     if request.method == 'POST':
         asset.name = request.POST.get('name')
@@ -224,10 +293,32 @@ def asset_edit(request, pk):
         if balance:
             asset.balance = Decimal(balance)
         
+        if asset.type == AssetType.CASH:
+            asset.location = request.POST.get('location', '')
+        elif asset.type == AssetType.BANK_CARD:
+            asset.bank_name = request.POST.get('bank_name', '')
+            asset.last_4_digits = request.POST.get('last_4_digits', '')
+        elif asset.type == AssetType.DEPOSIT:
+            asset.interest_rate = request.POST.get('interest_rate') or None
+            asset.term_months = request.POST.get('term_months') or None
+            renewal_date = request.POST.get('renewal_date')
+            asset.renewal_date = renewal_date if renewal_date else None
+            asset.is_capitalized = request.POST.get('is_capitalized') == 'on'
+        elif asset.type == AssetType.CREDIT_CARD:
+            asset.credit_limit = request.POST.get('credit_limit') or None
+            asset.grace_period_days = request.POST.get('grace_period_days') or None
+            asset.last_4_digits = request.POST.get('last_4_digits', '')
+            asset.billing_day = request.POST.get('billing_day') or None
+        elif asset.type == AssetType.BROKERAGE:
+            asset.broker_name = request.POST.get('broker_name', '')
+            asset.account_number = request.POST.get('account_number', '')
+            asset.brokerage_account_type = request.POST.get('brokerage_account_type', '')
+        
         asset.save()
         return redirect('assets')
     
     return render(request, 'asset_form.html', {
         'asset': asset,
         'asset_types': AssetType.choices,
+        'brokerage_account_types': BrokerageAccountType.choices,
     })
