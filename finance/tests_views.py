@@ -4,7 +4,7 @@ from django.urls import reverse
 from decimal import Decimal
 from datetime import datetime
 
-from finance.models import BankCardAsset, Transaction, AssetType, TransactionType, CashAsset
+from finance.models import Asset, BankCardAsset, Transaction, AssetType, TransactionType, CashAsset
 
 
 class AuthViewsTest(TestCase):
@@ -273,6 +273,29 @@ class AssetViewsTest(TestCase):
         self.assertEqual(asset.name, 'Updated Card')
         self.assertEqual(asset.currency, 'USD')
         self.assertEqual(asset.balance, Decimal('2000'))
+    
+    def test_asset_edit_can_add_field_that_was_null_at_creation(self):
+        asset = BankCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.BANK_CARD,
+            currency='RUB',
+            balance=Decimal('1000.00'),
+            bank_name='',
+            last_4_digits='',
+        )
+        url = reverse('asset_edit', args=[asset.pk])
+        response = self.client.post(url, {
+            'name': 'Test Card',
+            'type': AssetType.BANK_CARD,
+            'currency': 'RUB',
+            'balance': '1000',
+            'bank_name': 'Tinkoff',
+            'last_4_digits': '1234',
+        })
+        asset.refresh_from_db()
+        self.assertEqual(asset.bank_name, 'Tinkoff')
+        self.assertEqual(asset.last_4_digits, '1234')
     
     def test_asset_edit_other_user_forbidden(self):
         other_user = User.objects.create_user(username='other', password='otherpass')
