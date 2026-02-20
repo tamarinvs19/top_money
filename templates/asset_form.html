@@ -14,11 +14,12 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Type</label>
-            <select name="type" class="form-select" id="typeSelect" onchange="toggleFields()">
+            <select name="type" class="form-select" id="typeSelect" onchange="toggleFields()" {% if asset %}disabled{% endif %}>
               {% for value, label in asset_types %}
               <option value="{{ value }}" {% if asset and asset.type == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
+            {% if asset %}<input type="hidden" name="type" value="{{ asset.type }}" />{% endif %}
           </div>
           <div class="mb-3">
             <label class="form-label">Currency</label>
