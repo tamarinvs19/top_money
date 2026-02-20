@@ -311,6 +311,111 @@ class AssetViewsTest(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class AssetDeleteViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+    
+    def test_asset_delete_get(self):
+        asset = BankCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.BANK_CARD,
+            currency='RUB',
+            balance=Decimal('1000.00')
+        )
+        url = reverse('asset_delete', args=[asset.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+    
+    def test_asset_delete_post(self):
+        asset = BankCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.BANK_CARD,
+            currency='RUB',
+            balance=Decimal('1000.00')
+        )
+        url = reverse('asset_delete', args=[asset.pk])
+        response = self.client.post(url)
+        self.assertRedirects(response, reverse('assets'))
+        self.assertFalse(Asset.objects.filter(pk=asset.pk).exists())
+    
+    def test_asset_delete_other_user_forbidden(self):
+        other_user = User.objects.create_user(username='other', password='otherpass')
+        asset = BankCardAsset.objects.create(
+            user=other_user,
+            name='Other Card',
+            type=AssetType.BANK_CARD,
+            currency='RUB'
+        )
+        url = reverse('asset_delete', args=[asset.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+
+class TransactionDeleteViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = BankCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.BANK_CARD,
+            currency='RUB',
+            balance=Decimal('10000.00')
+        )
+        self.client.login(username='testuser', password='testpass123')
+    
+    def test_transaction_delete_get(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            date=timezone.now()
+        )
+        url = reverse('transaction_delete', args=[transaction.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+    
+    def test_transaction_delete_post(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            date=timezone.now()
+        )
+        url = reverse('transaction_delete', args=[transaction.pk])
+        response = self.client.post(url)
+        self.assertRedirects(response, reverse('transactions'))
+        self.assertFalse(Transaction.objects.filter(pk=transaction.pk).exists())
+    
+    def test_transaction_delete_other_user_forbidden(self):
+        other_user = User.objects.create_user(username='other', password='otherpass')
+        other_asset = BankCardAsset.objects.create(
+            user=other_user,
+            name='Other Card',
+            type=AssetType.BANK_CARD,
+            currency='RUB'
+        )
+        transaction = Transaction.objects.create(
+            user=other_user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=other_asset,
+            date=timezone.now()
+        )
+        url = reverse('transaction_delete', args=[transaction.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+
 class TransactionMonthNavigationTest(TestCase):
     def setUp(self):
         self.client = Client()

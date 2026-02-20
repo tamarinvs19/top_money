@@ -12,6 +12,9 @@ from finance.models import Asset, Transaction, AssetType, TransactionType, Broke
 from finance.models import CashAsset, BankCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset
 
 
+from django.http import HttpResponse
+
+
 def signup(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
@@ -324,3 +327,21 @@ def asset_edit(request, pk):
         'asset_types': AssetType.choices,
         'brokerage_account_types': BrokerageAccountType.choices,
     })
+
+
+@login_required
+def asset_delete(request, pk):
+    asset = get_object_or_404(Asset, pk=pk, user=request.user)
+    if request.method == 'POST':
+        asset.delete()
+        return redirect('assets')
+    return HttpResponse(f"Delete asset: {asset.name}")
+
+
+@login_required
+def transaction_delete(request, pk):
+    transaction = get_object_or_404(Transaction, pk=pk, user=request.user)
+    if request.method == 'POST':
+        transaction.delete()
+        return redirect('transactions')
+    return HttpResponse(f"Delete transaction: {transaction.id}")
