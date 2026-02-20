@@ -46,7 +46,7 @@
         <span class="badge bg-{% if t.type == 'REFILL' %}success{% elif t.type == 'WASTE' %}danger{% else %}info{% endif %}">
           {{ t.get_type_display }}
         </span>
-        {% if t.category %}{{ t.category }}{% endif %}{% if t.description %}<small class="text-muted">{{ t.description }}</small>{% endif %}
+        {% if t.category %}{{ t.get_category_display }}{% endif %}{% if t.description %}<small class="text-muted">{{ t.description }}</small>{% endif %}
         <br />
         <small class="text-muted">
           {% if t.from_asset %}&rarr; {{ t.from_asset.name }}{% endif %}{% if t.to_asset %}&larr; {{ t.to_asset.name }}{% endif %}

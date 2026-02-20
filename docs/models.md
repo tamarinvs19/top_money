@@ -47,7 +47,7 @@ Represents any financial account or container for money.
 | Type        | Description                           |
 | ----------- | ------------------------------------- |
 | CASH        | Physical cash (case/wallet)           |
-| BANK_CARD   | Debit/credit bank card                |
+| DEBIT_CARD  | Debit card (bank account)              |
 | DEPOSIT     | Bank deposit account                  |
 | CREDIT_CARD | Credit card (negative balance = debt) |
 | BROKERAGE   | Investment/brokerage account          |
@@ -68,14 +68,22 @@ Physical money in wallet, safe, or other location.
 
 ---
 
-#### 2. BANK_CARD (Bank Card)
+### CardAsset (Abstract Base Class)
 
-Debit card linked to a bank account.
+Base class for card-based assets (debit and credit cards).
 
 | Field         | Type      | Description                      |
 | ------------- | --------- | -------------------------------- |
 | bank_name     | Char(100) | Bank name (e.g., "Sberbank")     |
 | last_4_digits | Char(4)   | Last 4 digits of card (optional) |
+
+---
+
+#### 2. DEBIT_CARD (Debit Card)
+
+Debit card linked to a bank account. Inherits fields from CardAsset.
+
+**No additional fields.**
 
 **Example:** "Sberbank Debit Card", "Tinkoff Black"
 
@@ -98,13 +106,12 @@ Time deposit with interest accrual.
 
 #### 4. CREDIT_CARD (Credit Card)
 
-Credit card with spending limit and grace period.
+Credit card with spending limit and grace period. Inherits fields from CardAsset.
 
 | Field             | Type          | Description                                 |
 | ----------------- | ------------- | ------------------------------------------- |
 | credit_limit      | Decimal(15,2) | Maximum credit limit                        |
 | grace_period_days | Integer       | Days to pay without interest (e.g., 25)     |
-| last_4_digits     | Char(4)       | Last 4 digits of card (optional)            |
 | billing_day       | Integer       | Day of month when billing cycle ends (1-31) |
 
 **Example:** "Tinkoff All Credit", "Sberbank Gold"
@@ -127,22 +134,22 @@ Investment account for stocks, bonds, funds.
 
 ### Assets Fields Summary Table
 
-| Field / Type   | CASH | BANK_CARD | DEPOSIT | CREDIT_CARD | BROKERAGE |
-| -------------- | :--: | :-------: | :-----: | :---------: | :-------: |
-| name           |  ✓   |     ✓     |    ✓    |      ✓      |     ✓     |
-| currency       |  ✓   |     ✓     |    ✓    |      ✓      |     ✓     |
-| balance        |  ✓   |     ✓     |    ✓    |      ✓      |     ✓     |
-| is_active      |  ✓   |     ✓     |    ✓    |      ✓      |     ✓     |
-| location       |  ✓   |     -     |    -    |      -      |     -     |
-| bank_name      |  -   |     ✓     |    ✓    |      ✓      |     -     |
-| last_4_digits  |  -   |     ✓     |    -    |      ✓      |     -     |
-| interest_rate  |  -   |     -     |    ✓    |      -      |     -     |
-| term_months    |  -   |     -     |    ✓    |      -      |     -     |
-| renewal_date   |  -   |     -     |    ✓    |      -      |     -     |
-| credit_limit   |  -   |     -     |    -    |      ✓      |     -     |
-| grace_period   |  -   |     -     |    -    |      ✓      |     -     |
-| broker_name    |  -   |     -     |    -    |      -      |     ✓     |
-| account_number |  -   |     -     |    -    |      -      |     ✓     |
+| Field / Type   | CASH | CardAsset | DEBIT_CARD | DEPOSIT | CREDIT_CARD | BROKERAGE |
+| -------------- | :--: | :-------: | :--------: | :-----: | :----------: | :-------: |
+| name           |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
+| currency       |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
+| balance        |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
+| is_active      |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
+| location       |  ✓   |     -     |     -      |    -    |      -       |     -     |
+| bank_name      |  -   |     ✓     |     ✓      |    ✓    |      ✓       |     -     |
+| last_4_digits  |  -   |     ✓     |     ✓      |    -    |      ✓       |     -     |
+| interest_rate  |  -   |     -     |     -      |    ✓    |      -       |     -     |
+| term_months    |  -   |     -     |     -      |    ✓    |      -       |     -     |
+| renewal_date   |  -   |     -     |     -      |    ✓    |      -       |     -     |
+| credit_limit   |  -   |     -     |     -      |    -    |      ✓       |     -     |
+| grace_period   |  -   |     -     |     -      |    -    |      ✓       |     -     |
+| broker_name    |  -   |     -     |     -      |    -    |      -       |     ✓     |
+| account_number |  -   |     -     |     -      |    -    |      -       |     ✓     |
 
 ---
 

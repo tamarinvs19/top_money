@@ -33,9 +33,23 @@
             <label class="form-label">Date</label>
             <input type="date" name="date" class="form-control" value="{{ transaction.date|date:'Y-m-d'|default:initial_date }}" required />
           </div>
-          <div class="mb-3">
+          <div class="mb-3" id="wasteCategoryGroup">
             <label class="form-label">Category</label>
-            <input type="text" name="category" class="form-control" value="{{ transaction.category|default:'' }}" />
+            <select name="category" class="form-select">
+              <option value="">-- Select --</option>
+              {% for value, label in transaction_categories %}
+              <option value="{{ value }}" {% if transaction and transaction.category == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3" id="refillCategoryGroup" style="display: none;">
+            <label class="form-label">Category</label>
+            <select name="category" class="form-select">
+              <option value="">-- Select --</option>
+              {% for value, label in refill_categories %}
+              <option value="{{ value }}" {% if transaction and transaction.category == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="mb-3">
             <label class="form-label">Description</label>
@@ -89,16 +103,24 @@
     const type = document.getElementById("typeSelect").value;
     const fromGroup = document.getElementById("fromAssetGroup");
     const toGroup = document.getElementById("toAssetGroup");
+    const wasteCategoryGroup = document.getElementById("wasteCategoryGroup");
+    const refillCategoryGroup = document.getElementById("refillCategoryGroup");
 
     if (type === "REFILL") {
       fromGroup.style.display = "none";
       toGroup.style.display = "block";
+      wasteCategoryGroup.style.display = "none";
+      refillCategoryGroup.style.display = "block";
     } else if (type === "WASTE") {
       fromGroup.style.display = "block";
       toGroup.style.display = "none";
+      wasteCategoryGroup.style.display = "block";
+      refillCategoryGroup.style.display = "none";
     } else {
       fromGroup.style.display = "block";
       toGroup.style.display = "block";
+      wasteCategoryGroup.style.display = "none";
+      refillCategoryGroup.style.display = "none";
     }
   }
   toggleFields();

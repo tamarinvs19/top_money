@@ -8,8 +8,8 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
-from finance.models import Asset, Transaction, AssetType, TransactionType, BrokerageAccountType
-from finance.models import CashAsset, BankCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset
+from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType
+from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset
 
 
 from django.http import HttpResponse
@@ -140,6 +140,8 @@ def transaction_add(request, year=None, month=None, day=None):
     return render(request, 'transaction_form.html', {
         'assets': assets,
         'transaction_types': TransactionType.choices,
+        'transaction_categories': WasteCategory.choices,
+        'refill_categories': RefillCategory.choices,
         'initial_date': initial_date.strftime('%Y-%m-%d'),
     })
 
@@ -170,6 +172,8 @@ def transaction_edit(request, pk):
         'transaction': transaction,
         'assets': assets,
         'transaction_types': TransactionType.choices,
+        'transaction_categories': WasteCategory.choices,
+        'refill_categories': RefillCategory.choices,
         'initial_date': transaction.date.strftime('%Y-%m-%d'),
     })
 
@@ -211,8 +215,8 @@ def asset_add(request):
                 balance=balance,
                 location=request.POST.get('location', ''),
             )
-        elif asset_type == AssetType.BANK_CARD:
-            asset = BankCardAsset.objects.create(
+        elif asset_type == AssetType.DEBIT_CARD:
+            asset = DebitCardAsset.objects.create(
                 user=request.user,
                 name=name,
                 type=asset_type,
@@ -280,8 +284,8 @@ def asset_edit(request, pk):
     
     if asset.type == AssetType.CASH:
         asset = get_object_or_404(CashAsset, pk=pk)
-    elif asset.type == AssetType.BANK_CARD:
-        asset = get_object_or_404(BankCardAsset, pk=pk)
+    elif asset.type == AssetType.DEBIT_CARD:
+        asset = get_object_or_404(DebitCardAsset, pk=pk)
     elif asset.type == AssetType.DEPOSIT:
         asset = get_object_or_404(DepositAsset, pk=pk)
     elif asset.type == AssetType.CREDIT_CARD:
@@ -300,7 +304,7 @@ def asset_edit(request, pk):
         
         if asset.type == AssetType.CASH:
             asset.location = request.POST.get('location', '')
-        elif asset.type == AssetType.BANK_CARD:
+        elif asset.type == AssetType.DEBIT_CARD:
             asset.bank_name = request.POST.get('bank_name', '')
             asset.last_4_digits = request.POST.get('last_4_digits', '')
         elif asset.type == AssetType.DEPOSIT:

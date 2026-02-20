@@ -41,7 +41,7 @@
             </div>
           </div>
 
-          <div id="bankCardFields" class="asset-fields" style="display: none;">
+          <div id="cardFields" class="asset-fields" style="display: none;">
             <div class="mb-3">
               <label class="form-label">Bank Name</label>
               <input type="text" name="bank_name" class="form-control" value="{{ asset.bank_name|default:'' }}" />
@@ -50,6 +50,9 @@
               <label class="form-label">Last 4 Digits</label>
               <input type="text" name="last_4_digits" class="form-control" maxlength="4" value="{{ asset.last_4_digits|default:'' }}" />
             </div>
+          </div>
+
+          <div id="debitCardFields" class="asset-fields" style="display: none;">
           </div>
 
           <div id="depositFields" class="asset-fields" style="display: none;">
@@ -79,10 +82,6 @@
             <div class="mb-3">
               <label class="form-label">Grace Period (days)</label>
               <input type="number" name="grace_period_days" class="form-control" value="{{ asset.grace_period_days|default:'' }}" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Last 4 Digits</label>
-              <input type="text" name="last_4_digits" class="form-control" maxlength="4" value="{{ asset.last_4_digits|default:'' }}" />
             </div>
             <div class="mb-3">
               <label class="form-label">Billing Day</label>
@@ -146,18 +145,21 @@ function toggleFields() {
   var type = document.getElementById('typeSelect').value;
   
   document.getElementById('cashFields').style.display = 'none';
-  document.getElementById('bankCardFields').style.display = 'none';
+  document.getElementById('cardFields').style.display = 'none';
+  document.getElementById('debitCardFields').style.display = 'none';
   document.getElementById('depositFields').style.display = 'none';
   document.getElementById('creditCardFields').style.display = 'none';
   document.getElementById('brokerageFields').style.display = 'none';
   
   if (type === 'CASH') {
     document.getElementById('cashFields').style.display = 'block';
-  } else if (type === 'BANK_CARD') {
-    document.getElementById('bankCardFields').style.display = 'block';
+  } else if (type === 'DEBIT_CARD') {
+    document.getElementById('cardFields').style.display = 'block';
+    document.getElementById('debitCardFields').style.display = 'block';
   } else if (type === 'DEPOSIT') {
     document.getElementById('depositFields').style.display = 'block';
   } else if (type === 'CREDIT_CARD') {
+    document.getElementById('cardFields').style.display = 'block';
     document.getElementById('creditCardFields').style.display = 'block';
   } else if (type === 'BROKERAGE') {
     document.getElementById('brokerageFields').style.display = 'block';

@@ -10,7 +10,7 @@ from finance.currency import CurrencyConverter
 
 class AssetType(models.TextChoices):
     CASH = 'CASH', 'Cash'
-    BANK_CARD = 'BANK_CARD', 'Bank Card'
+    DEBIT_CARD = 'DEBIT_CARD', 'Debit Card'
     DEPOSIT = 'DEPOSIT', 'Deposit'
     CREDIT_CARD = 'CREDIT_CARD', 'Credit Card'
     BROKERAGE = 'BROKERAGE', 'Brokerage Account'
@@ -23,9 +23,37 @@ class BrokerageAccountType(models.TextChoices):
 
 
 class TransactionType(models.TextChoices):
-    REFILL = 'REFILL', 'Refill'
     WASTE = 'WASTE', 'Waste'
     TRANSFER = 'TRANSFER', 'Transfer'
+    REFILL = 'REFILL', 'Refill'
+
+
+class WasteCategory(models.TextChoices):
+    PRODUCTS = 'PRODUCTS', 'Products'
+    CAFE_AND_RESTAURANTS = 'CAFE_AND_RESTAURANTS', 'Cafe and restaurants'
+    TRANSPORT = 'TRANSPORT', 'Transport'
+    HCS = 'HCS', 'HCS'
+    LEISURE = 'LEISURE', 'Leisure'
+    CLOTHING_AND_SHOES = 'CLOTHING_AND_SHOES', 'Clothing and shoes'
+    SPORT = 'SPORT', 'Sport'
+    HEALTH_AND_BEAUTY = 'HEALTH_AND_BEAUTY', 'Health and beauty'
+    SUBSCRIPTIONS = 'SUBSCRIPTIONS', 'Subscriptions'
+    TAXES_AND_PENALTIES = 'TAXES_AND_PENALTIES', 'Taxes and penalties'
+    LEARNING = 'LEARNING', 'Learning'
+    GIFTS = 'GIFTS', 'Gifts'
+    TECHNIQUE = 'TECHNIQUE', 'Technique'
+    TRAVELING = 'TRAVELING', 'Traveling'
+    REALTY = 'REALTY', 'Realty'
+    OTHER = 'OTHER_WASTE', 'Other waste'
+
+
+class RefillCategory(models.TextChoices):
+    SALARY = 'SALARY', 'Salary'
+    BONUS = 'BONUS', 'Bonus'
+    CASHBACK = 'CASHBACK', 'Cashback'
+    SALE = 'SALE', 'Sale'
+    INVESTMENT = 'INVESTMENT', 'Investment'
+    OTHER = 'OTHER_REFILL', 'Other refill'
 
 
 class Asset(models.Model):
@@ -97,13 +125,19 @@ class CashAsset(Asset):
         verbose_name_plural = 'Cash'
 
 
-class BankCardAsset(Asset):
+class CardAsset(Asset):
     bank_name = models.CharField(max_length=100, blank=True)
     last_4_digits = models.CharField(max_length=4, blank=True)
 
     class Meta:
-        verbose_name = 'Bank Card'
-        verbose_name_plural = 'Bank Cards'
+        abstract = True
+
+
+class DebitCardAsset(CardAsset):
+
+    class Meta:
+        verbose_name = 'Debit Card'
+        verbose_name_plural = 'Debit Cards'
 
 
 class DepositAsset(Asset):
@@ -117,10 +151,9 @@ class DepositAsset(Asset):
         verbose_name_plural = 'Deposits'
 
 
-class CreditCardAsset(Asset):
+class CreditCardAsset(CardAsset):
     credit_limit = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True)
     grace_period_days = models.PositiveIntegerField(blank=True, null=True)
-    last_4_digits = models.CharField(max_length=4, blank=True)
     billing_day = models.PositiveIntegerField(blank=True, null=True)
 
     class Meta:
@@ -162,7 +195,7 @@ class Transaction(models.Model):
         blank=True,
         null=True
     )
-    category = models.CharField(max_length=50, blank=True)
+    category = models.CharField(max_length=30, choices=WasteCategory.choices + RefillCategory.choices, blank=True)
     description = models.TextField(blank=True)
     date = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)

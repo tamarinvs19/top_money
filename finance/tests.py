@@ -4,9 +4,9 @@ from django.utils import timezone
 from decimal import Decimal
 
 from finance.models import (
-    Asset, CashAsset, BankCardAsset, DepositAsset, 
+    Asset, CashAsset, DebitCardAsset, DepositAsset, 
     CreditCardAsset, BrokerageAsset, Transaction, 
-    AssetType, TransactionType, BrokerageAccountType
+    AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType
 )
 from finance.currency import CurrencyConverter
 
@@ -45,10 +45,10 @@ class AssetModelTest(TestCase):
         self.assertTrue(asset.is_active)
 
     def test_create_bank_card_asset(self):
-        asset = BankCardAsset.objects.create(
+        asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Sberbank Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             currency='RUB',
             balance=Decimal('15000.00'),
             bank_name='Sberbank',
@@ -108,14 +108,14 @@ class AssetModelTest(TestCase):
             type=AssetType.CASH,
             balance=Decimal('1000.00')
         )
-        BankCardAsset.objects.create(
+        DebitCardAsset.objects.create(
             user=self.user,
             name='Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             balance=Decimal('5000.00')
         )
         self.assertEqual(CashAsset.objects.filter(user=self.user).count(), 1)
-        self.assertEqual(BankCardAsset.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(DebitCardAsset.objects.filter(user=self.user).count(), 1)
 
     def test_asset_str_representation(self):
         asset = CashAsset.objects.create(
@@ -133,10 +133,10 @@ class TransactionModelTest(TestCase):
             username='testuser',
             password='testpass123'
         )
-        self.asset = BankCardAsset.objects.create(
+        self.asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Sberbank Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             currency='RUB',
             balance=Decimal('10000.00')
         )
@@ -170,10 +170,10 @@ class TransactionModelTest(TestCase):
         self.assertIsNone(transaction.to_asset)
 
     def test_create_transfer_transaction(self):
-        to_asset = BankCardAsset.objects.create(
+        to_asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Tinkoff Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             currency='RUB',
             balance=Decimal('0.00')
         )
@@ -281,10 +281,10 @@ class AssetBalanceCalculationTest(TestCase):
             username='testuser',
             password='testpass123'
         )
-        self.asset = BankCardAsset.objects.create(
+        self.asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Sberbank Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             currency='RUB',
             balance=Decimal('10000.00')
         )
@@ -387,10 +387,10 @@ class AssetBalanceCalculationTest(TestCase):
         self.assertEqual(balance_at_future, Decimal('13000.00'))
 
     def test_balance_with_transfer(self):
-        to_asset = BankCardAsset.objects.create(
+        to_asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Tinkoff Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             currency='RUB',
             balance=Decimal('0.00')
         )
@@ -407,10 +407,10 @@ class AssetBalanceCalculationTest(TestCase):
         self.assertEqual(calculated_from, Decimal('5000.00'))
 
     def test_balance_ignores_other_assets(self):
-        other_asset = BankCardAsset.objects.create(
+        other_asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Other Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             currency='RUB',
             balance=Decimal('0.00')
         )
@@ -475,10 +475,10 @@ class AssetUpdateBalanceTest(TestCase):
             username='testuser',
             password='testpass123'
         )
-        self.asset = BankCardAsset.objects.create(
+        self.asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Sberbank Card',
-            type=AssetType.BANK_CARD,
+            type=AssetType.DEBIT_CARD,
             currency='RUB',
             balance=Decimal('10000.00')
         )
@@ -564,3 +564,128 @@ class AssetUpdateBalanceTest(TestCase):
         self.asset.update_balance(at_time=past)
         self.asset.refresh_from_db()
         self.assertEqual(self.asset.balance, Decimal('15000.00'))
+
+
+class TransactionCategoryTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+            balance=Decimal('10000.00')
+        )
+
+    def test_create_waste_transaction_with_category(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('500.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category=WasteCategory.PRODUCTS,
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.category, WasteCategory.PRODUCTS)
+        self.assertEqual(transaction.get_category_display(), 'Products')
+
+    def test_create_waste_transaction_with_all_categories(self):
+        categories = [
+            WasteCategory.PRODUCTS,
+            WasteCategory.CAFE_AND_RESTAURANTS,
+            WasteCategory.TRANSPORT,
+            WasteCategory.HCS,
+            WasteCategory.LEISURE,
+            WasteCategory.CLOTHING_AND_SHOES,
+            WasteCategory.SPORT,
+            WasteCategory.HEALTH_AND_BEAUTY,
+            WasteCategory.SUBSCRIPTIONS,
+            WasteCategory.TAXES_AND_PENALTIES,
+            WasteCategory.LEARNING,
+            WasteCategory.GIFTS,
+            WasteCategory.TECHNIQUE,
+            WasteCategory.TRAVELING,
+            WasteCategory.REALTY,
+            WasteCategory.OTHER,
+        ]
+        for category in categories:
+            transaction = Transaction.objects.create(
+                user=self.user,
+                type=TransactionType.WASTE,
+                amount=Decimal('100.00'),
+                currency='RUB',
+                from_asset=self.asset,
+                category=category,
+                date=timezone.now()
+            )
+            self.assertEqual(transaction.category, category)
+
+    def test_create_refill_transaction_with_category(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category=RefillCategory.SALARY,
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.category, RefillCategory.SALARY)
+        self.assertEqual(transaction.get_category_display(), 'Salary')
+
+    def test_create_refill_transaction_with_all_categories(self):
+        categories = [
+            RefillCategory.SALARY,
+            RefillCategory.BONUS,
+            RefillCategory.CASHBACK,
+            RefillCategory.SALE,
+            RefillCategory.INVESTMENT,
+            RefillCategory.OTHER,
+        ]
+        for category in categories:
+            transaction = Transaction.objects.create(
+                user=self.user,
+                type=TransactionType.REFILL,
+                amount=Decimal('1000.00'),
+                currency='RUB',
+                to_asset=self.asset,
+                category=category,
+                date=timezone.now()
+            )
+            self.assertEqual(transaction.category, category)
+
+    def test_transaction_without_category(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('100.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.category, '')
+
+    def test_waste_category_display(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('200.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category=WasteCategory.CAFE_AND_RESTAURANTS,
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.get_category_display(), 'Cafe and restaurants')
+
+    def test_refill_category_display(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('3000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category=RefillCategory.CASHBACK,
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.get_category_display(), 'Cashback')
