@@ -67,11 +67,6 @@ def transactions(request, year=None, month=None):
             amount = t.amount
         elif t.type == TransactionType.WASTE:
             amount = -t.amount
-        elif t.type == TransactionType.TRANSFER:
-            if t.from_asset:
-                amount = -t.amount
-            else:
-                amount = t.amount
         else:
             amount = Decimal('0')
         grouped[day]['day_total'] += amount
@@ -117,7 +112,7 @@ def transaction_add(request, year=None, month=None, day=None):
         t_type = request.POST.get('type')
         amount = Decimal(request.POST.get('amount'))
         currency = request.POST.get('currency')
-        category = request.POST.get('category')
+        category = request.POST.get('category') or ''
         description = request.POST.get('description')
         date_str = request.POST.get('date')
         time_str = request.POST.get('time', '00:00')
@@ -159,7 +154,7 @@ def transaction_edit(request, pk):
         transaction.type = request.POST.get('type')
         transaction.amount = Decimal(request.POST.get('amount'))
         transaction.currency = request.POST.get('currency')
-        transaction.category = request.POST.get('category')
+        transaction.category = request.POST.get('category') or ''
         transaction.description = request.POST.get('description')
         transaction.date = make_aware(datetime.strptime(f"{request.POST.get('date')} {request.POST.get('time', '00:00')}", '%Y-%m-%d %H:%M'))
         

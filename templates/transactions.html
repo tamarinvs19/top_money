@@ -15,14 +15,14 @@
     </div>
     <div class="row text-center mt-3">
       <div class="col">
-        <small class="text-success">+{{ month_income|floatformat:2 }}</small>
+        <small class="text-success">+{{ month_income|floatformat:2 }} ₽</small>
       </div>
       <div class="col">
-        <small class="text-danger">-{{ month_expense|floatformat:2 }}</small>
+        <small class="text-danger">-{{ month_expense|floatformat:2 }} ₽</small>
       </div>
       <div class="col">
         <small class="{% if month_balance >= 0 %}text-success{% else %}text-danger{% endif %}">
-          {{ month_balance|floatformat:2 }}
+          {{ month_balance|floatformat:2 }} ₽
         </small>
       </div>
     </div>
@@ -49,12 +49,12 @@
         {% if t.category %}{{ t.get_category_display }}{% endif %}{% if t.description %}<small class="text-muted">{{ t.description }}</small>{% endif %}
         <br />
         <small class="text-muted">
-          {% if t.from_asset %}&rarr; {{ t.from_asset.name }}{% endif %}{% if t.to_asset %}&larr; {{ t.to_asset.name }}{% endif %}
+          {% if t.type == 'TRANSFER' and t.from_asset and t.to_asset %}{{ t.from_asset.name }} &rarr; {{ t.to_asset.name }}{% else %}{% if t.from_asset %}{{ t.from_asset.name }}{% endif %}{% if t.to_asset %}{{ t.to_asset.name }}{% endif %}{% endif %}
         </small>
       </div>
       <div class="text-end">
-        <strong>{{ t.amount|floatformat:2 }}</strong>
-        <small>{{ t.currency }}</small>
+        <strong class="{% if t.type == 'REFILL' %}text-success{% elif t.type == 'WASTE' %}text-danger{% endif %}">{{ t.amount|floatformat:2 }}</strong>
+        <small>{% if t.currency == 'RUB' %}₽{% elif t.currency == 'USD' %}${% elif t.currency == 'EUR' %}€{% else %}{{ t.currency }}{% endif %}</small>
       </div>
     </a>
   </div>

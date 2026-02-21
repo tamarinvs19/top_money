@@ -24,9 +24,9 @@
           <div class="mb-3">
             <label class="form-label">Currency</label>
             <select name="currency" class="form-select">
-              <option value="RUB" {% if not asset or asset.currency == 'RUB' %}selected{% endif %}>RUB</option>
-              <option value="USD" {% if asset.currency == 'USD' %}selected{% endif %}>USD</option>
-              <option value="EUR" {% if asset.currency == 'EUR' %}selected{% endif %}>EUR</option>
+              <option value="RUB" {% if not asset or asset.currency == 'RUB' %}selected{% endif %}>₽ RUB</option>
+              <option value="USD" {% if asset.currency == 'USD' %}selected{% endif %}>$ USD</option>
+              <option value="EUR" {% if asset.currency == 'EUR' %}selected{% endif %}>€ EUR</option>
             </select>
           </div>
           <div class="mb-3">

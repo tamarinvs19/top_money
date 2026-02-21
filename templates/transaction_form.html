@@ -24,9 +24,9 @@
           <div class="mb-3">
             <label class="form-label">Currency</label>
             <select name="currency" class="form-select">
-              <option value="RUB" {% if not transaction or transaction.currency == 'RUB' %}selected{% endif %}>RUB</option>
-              <option value="USD" {% if transaction.currency == 'USD' %}selected{% endif %}>USD</option>
-              <option value="EUR" {% if transaction.currency == 'EUR' %}selected{% endif %}>EUR</option>
+              <option value="RUB" {% if not transaction or transaction.currency == 'RUB' %}selected{% endif %}>₽ RUB</option>
+              <option value="USD" {% if transaction.currency == 'USD' %}selected{% endif %}>$ USD</option>
+              <option value="EUR" {% if transaction.currency == 'EUR' %}selected{% endif %}>€ EUR</option>
             </select>
           </div>
           <div class="mb-3">
@@ -38,7 +38,7 @@
           </div>
           <div class="mb-3" id="wasteCategoryGroup">
             <label class="form-label">Category</label>
-            <select name="category" class="form-select">
+            <select name="category" class="form-select" {% if transaction and transaction.type == "REFILL" %}disabled{% endif %}>
               <option value="">-- Select --</option>
               {% for value, label in transaction_categories %}
               <option value="{{ value }}" {% if transaction and transaction.category == value %}selected{% endif %}>{{ label }}</option>
@@ -47,7 +47,7 @@
           </div>
           <div class="mb-3" id="refillCategoryGroup" style="display: none;">
             <label class="form-label">Category</label>
-            <select name="category" class="form-select">
+            <select name="category" class="form-select" {% if transaction and transaction.type == "WASTE" %}disabled{% endif %}>
               <option value="">-- Select --</option>
               {% for value, label in refill_categories %}
               <option value="{{ value }}" {% if transaction and transaction.category == value %}selected{% endif %}>{{ label }}</option>
@@ -108,22 +108,30 @@
     const toGroup = document.getElementById("toAssetGroup");
     const wasteCategoryGroup = document.getElementById("wasteCategoryGroup");
     const refillCategoryGroup = document.getElementById("refillCategoryGroup");
+    const wasteCategorySelect = wasteCategoryGroup.querySelector("select");
+    const refillCategorySelect = refillCategoryGroup.querySelector("select");
 
     if (type === "REFILL") {
       fromGroup.style.display = "none";
       toGroup.style.display = "block";
       wasteCategoryGroup.style.display = "none";
       refillCategoryGroup.style.display = "block";
+      wasteCategorySelect.disabled = true;
+      refillCategorySelect.disabled = false;
     } else if (type === "WASTE") {
       fromGroup.style.display = "block";
       toGroup.style.display = "none";
       wasteCategoryGroup.style.display = "block";
       refillCategoryGroup.style.display = "none";
+      wasteCategorySelect.disabled = false;
+      refillCategorySelect.disabled = true;
     } else {
       fromGroup.style.display = "block";
       toGroup.style.display = "block";
       wasteCategoryGroup.style.display = "none";
       refillCategoryGroup.style.display = "none";
+      wasteCategorySelect.disabled = true;
+      refillCategorySelect.disabled = true;
     }
   }
   toggleFields();
