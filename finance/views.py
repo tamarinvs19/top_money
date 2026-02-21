@@ -424,21 +424,24 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
         return cat
     
     income_data = []
-    for cat, amount in income_sorted:
+    colors = ['#ff6b6b', '#ffa07a', '#ffd93d', '#6bcb77', '#4d96ff', '#9b59b6', '#ff9ff3', '#54a0ff', '#5f27cd', '#48dbfb', '#ff9f43', '#ee5a24', '#009432', '#1289A7', '#D980FA']
+    for i, (cat, amount) in enumerate(income_sorted):
         percent = (amount / total_income * 100) if total_income > 0 else 0
         income_data.append({
             'category': format_category(cat),
             'amount': amount,
             'percent': percent,
+            'color': colors[i % len(colors)],
         })
     
     outcome_data = []
-    for cat, amount in outcome_sorted:
+    for i, (cat, amount) in enumerate(outcome_sorted):
         percent = (amount / total_outcome * 100) if total_outcome > 0 else 0
         outcome_data.append({
             'category': format_category(cat),
             'amount': amount,
             'percent': percent,
+            'color': colors[i % len(colors)],
         })
     
     return render(request, 'statistics.html', {
