@@ -473,3 +473,272 @@ class TransactionFormFieldsTest(TestCase):
         response = self.client.get(reverse('transaction_add'))
         self.assertContains(response, 'From Asset')
         self.assertContains(response, 'To Asset')
+
+
+class StatisticsViewsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+            balance=Decimal('10000.00')
+        )
+        self.client.login(username='testuser', password='testpass123')
+        self.current_month = timezone.now().month
+        self.current_year = timezone.now().year
+    
+    def test_statistics_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('statistics'))
+        self.assertRedirects(response, f"{reverse('login')}?next=/statistics/")
+    
+    def test_statistics_list_get(self):
+        response = self.client.get(reverse('statistics'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Statistics')
+    
+    def test_statistics_navigation(self):
+        url = reverse('statistics_month', args=[2026, 1])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+    
+    def test_statistics_with_income_data(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='SALARY',
+            date=test_date
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='BONUS',
+            date=test_date
+        )
+        
+        url = reverse('statistics_month_type', args=[self.current_year, self.current_month, 'income'])
+        response = self.client.get(url)
+        self.assertContains(response, '5000.00')
+        self.assertContains(response, '1000.00')
+        self.assertContains(response, 'Salary')
+        self.assertContains(response, 'Bonus')
+    
+    def test_statistics_with_outcome_data(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('3000.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='PRODUCTS',
+            date=test_date
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('500.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='TRANSPORT',
+            date=test_date
+        )
+        
+        url = reverse('statistics_month_type', args=[self.current_year, self.current_month, 'outcome'])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '3000.00')
+        self.assertContains(response, '500.00')
+        self.assertContains(response, 'Products')
+        self.assertContains(response, 'Transport')
+    
+    def test_statistics_income_subpage(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='SALARY',
+            date=test_date
+        )
+        
+        url = reverse('statistics_month_type', args=[self.current_year, self.current_month, 'income'])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Income')
+        self.assertContains(response, 'Salary')
+    
+    def test_statistics_outcome_subpage(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('3000.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='PRODUCTS',
+            date=test_date
+        )
+        
+        url = reverse('statistics_month_type', args=[self.current_year, self.current_month, 'outcome'])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Outcome')
+        self.assertContains(response, 'Products')
+    
+    def test_statistics_only_shows_user_data(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        other_user = User.objects.create_user(username='other', password='otherpass')
+        other_asset = DebitCardAsset.objects.create(
+            user=other_user,
+            name='Other Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB'
+        )
+        
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=other_user,
+            type=TransactionType.REFILL,
+            amount=Decimal('99999.00'),
+            currency='RUB',
+            to_asset=other_asset,
+            category='SALARY',
+            date=test_date
+        )
+        
+        response = self.client.get(reverse('statistics'))
+        self.assertNotContains(response, '99999.00')
+    
+    def test_statistics_empty_month(self):
+        response = self.client.get(reverse('statistics'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No outcome data')
+    
+    def test_statistics_empty_outcome(self):
+        url = reverse('statistics_month_type', args=[self.current_year, self.current_month, 'outcome'])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No outcome data')
+    
+    def test_statistics_totals_display(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='SALARY',
+            date=test_date
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('2000.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='PRODUCTS',
+            date=test_date
+        )
+        
+        response = self.client.get(reverse('statistics'))
+        self.assertContains(response, '+5000.00')
+        self.assertContains(response, '-2000.00')
+    
+    def test_statistics_default_period_is_month(self):
+        response = self.client.get(reverse('statistics'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Month</a>')
+        self.assertContains(response, '2/2026')
+    
+    def test_statistics_period_year(self):
+        url = reverse('statistics_year_type', args=[self.current_year, 'outcome'])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Year</a>')
+        self.assertContains(response, 'class="btn btn-outline-secondary active">Year</a>')
+    
+    def test_statistics_period_navigation(self):
+        url = reverse('statistics_year', args=[self.current_year])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+    
+    def test_statistics_year_shows_year_stats(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        test_date = make_aware(datetime(self.current_year, 6, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('3000.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='PRODUCTS',
+            date=test_date
+        )
+        
+        url = reverse('statistics_year', args=[self.current_year])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Year</a>')
+        self.assertContains(response, f'>{self.current_year}<')
+    
+    def test_statistics_month_shows_month_stats(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+        
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('3000.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='PRODUCTS',
+            date=test_date
+        )
+        
+        url = reverse('statistics_month', args=[self.current_year, self.current_month])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Month</a>')
+        self.assertContains(response, f'>{self.current_month}/{self.current_year}<')

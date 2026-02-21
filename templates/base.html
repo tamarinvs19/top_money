@@ -49,6 +49,7 @@
         <div class="d-flex justify-content-between w-100 align-items-center">
           <div class="navbar-nav flex-row gap-2">
             <a class="nav-link" href="{% url 'transactions' %}">Transactions</a>
+            <a class="nav-link" href="{% url 'statistics' %}">Statistics</a>
             <a class="nav-link" href="{% url 'assets' %}">Assets</a>
           </div>
           <form method="post" action="{% url 'logout' %}" class="d-inline">
@@ -63,13 +64,16 @@
     <nav class="navbar fixed-bottom navbar-light bg-white shadow-sm d-lg-none">
       <div class="container-fluid">
         <div class="row w-100 g-0 text-center">
-          <div class="col-4 border-end">
+          <div class="col-3 border-end">
             <a class="nav-link py-3 d-block" href="{% url 'transactions' %}">Transactions</a>
           </div>
-          <div class="col-4 border-end">
+          <div class="col-3 border-end">
+            <a class="nav-link py-3 d-block" href="{% url 'statistics' %}">Statistics</a>
+          </div>
+          <div class="col-3 border-end">
             <a class="nav-link py-3 d-block" href="{% url 'assets' %}">Assets</a>
           </div>
-          <div class="col-4">
+          <div class="col-3">
             <form method="post" action="{% url 'logout' %}" class="d-block py-3 m-0">
               {% csrf_token %}
               <button type="submit" class="btn nav-link w-100">Logout</button>

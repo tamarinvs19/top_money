@@ -343,6 +343,121 @@ def asset_delete(request, pk):
 
 
 @login_required
+def statistics(request, year=None, month=None, stat_type='outcome'):
+    today = timezone.now()
+    
+    if stat_type not in ['income', 'outcome']:
+        stat_type = 'outcome'
+    
+    if year is None:
+        year = today.year
+        month = today.month
+        period = 'month'
+    elif month is None:
+        month = 1
+        period = 'year'
+    else:
+        period = 'month'
+    
+    if period == 'year':
+        start_date = make_aware(datetime(int(year), 1, 1))
+        end_date = make_aware(datetime(int(year), 12, 31, 23, 59, 59))
+        prev_year = int(year) - 1
+        next_year = int(year) + 1
+        prev_date = prev_year
+        next_date = next_year
+    else:
+        current_date = make_aware(datetime(int(year), int(month), 1))
+        start_date = current_date
+        if int(month) == 12:
+            end_date = make_aware(datetime(int(year) + 1, 1, 1)) - timedelta(seconds=1)
+        else:
+            from calendar import monthrange
+            _, days = monthrange(int(year), int(month))
+            end_date = make_aware(datetime(int(year), int(month), days, 23, 59, 59))
+        prev_year = int(year)
+        next_year = int(year)
+        if int(month) == 1:
+            prev_year = int(year) - 1
+            prev_month = 12
+        else:
+            prev_month = int(month) - 1
+        if int(month) == 12:
+            next_year = int(year) + 1
+            next_month = 1
+        else:
+            next_month = int(month) + 1
+        prev_date = (prev_year, prev_month)
+        next_date = (next_year, next_month)
+    
+    transactions_list = Transaction.objects.filter(
+        user=request.user,
+        date__gte=start_date,
+        date__lte=end_date
+    )
+    
+    income_by_category = {}
+    outcome_by_category = {}
+    total_income = Decimal('0')
+    total_outcome = Decimal('0')
+    
+    for t in transactions_list:
+        if t.type == TransactionType.REFILL:
+            cat = t.category if t.category else 'OTHER_REFILL'
+            income_by_category[cat] = income_by_category.get(cat, Decimal('0')) + t.amount
+            total_income += t.amount
+        elif t.type == TransactionType.WASTE:
+            cat = t.category if t.category else 'OTHER_WASTE'
+            outcome_by_category[cat] = outcome_by_category.get(cat, Decimal('0')) + t.amount
+            total_outcome += t.amount
+    
+    income_sorted = sorted(income_by_category.items(), key=lambda x: x[1], reverse=True)
+    outcome_sorted = sorted(outcome_by_category.items(), key=lambda x: x[1], reverse=True)
+    
+    def format_category(cat):
+        for choice in RefillCategory.choices:
+            if choice[0] == cat:
+                return choice[1]
+        for choice in WasteCategory.choices:
+            if choice[0] == cat:
+                return choice[1]
+        return cat
+    
+    income_data = []
+    for cat, amount in income_sorted:
+        percent = (amount / total_income * 100) if total_income > 0 else 0
+        income_data.append({
+            'category': format_category(cat),
+            'amount': amount,
+            'percent': percent,
+        })
+    
+    outcome_data = []
+    for cat, amount in outcome_sorted:
+        percent = (amount / total_outcome * 100) if total_outcome > 0 else 0
+        outcome_data.append({
+            'category': format_category(cat),
+            'amount': amount,
+            'percent': percent,
+        })
+    
+    return render(request, 'statistics.html', {
+        'year': int(year),
+        'month': int(month),
+        'period': period,
+        'prev_year': prev_date[0] if period == 'month' else prev_date,
+        'prev_month': prev_date[1] if period == 'month' else None,
+        'next_year': next_date[0] if period == 'month' else next_date,
+        'next_month': next_date[1] if period == 'month' else None,
+        'stat_type': stat_type,
+        'income_data': income_data,
+        'outcome_data': outcome_data,
+        'total_income': total_income,
+        'total_outcome': total_outcome,
+    })
+
+
+@login_required
 def transaction_delete(request, pk):
     transaction = get_object_or_404(Transaction, pk=pk, user=request.user)
     if request.method == 'POST':

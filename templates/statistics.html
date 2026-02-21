@@ -1,0 +1,221 @@
+{% extends 'base.html' %}
+{% block title %}Statistics - Finance Manager{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Statistics</h2>
+  <div class="btn-group" role="group">
+    {% if period == 'month' %}
+      <a href="#" class="btn btn-outline-secondary active">Month</a>
+      <a href="{% url 'statistics_year' year %}" class="btn btn-outline-secondary">Year</a>
+    {% else %}
+      <a href="{% url 'statistics_month' year month %}" class="btn btn-outline-secondary">Month</a>
+      <a href="#" class="btn btn-outline-secondary active">Year</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      {% if period == 'month' %}
+        <a href="{% url 'statistics_month' prev_year prev_month %}" class="btn btn-outline-secondary">&larr; Prev</a>
+        <h4 class="mb-0">{{ month }}/{{ year }}</h4>
+        <a href="{% url 'statistics_month' next_year next_month %}" class="btn btn-outline-secondary">Next &rarr;</a>
+      {% else %}
+        <a href="{% url 'statistics_year' prev_year %}" class="btn btn-outline-secondary">&larr; Prev</a>
+        <h4 class="mb-0">{{ year }}</h4>
+        <a href="{% url 'statistics_year' next_year %}" class="btn btn-outline-secondary">Next &rarr;</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<ul class="nav nav-tabs mb-4">
+  {% if period == 'month' %}
+  <li class="nav-item">
+    <a class="nav-link {% if stat_type == 'income' %}active{% endif %}" href="{% url 'statistics_month_type' year month 'income' %}">
+      Income <span class="text-success">+{{ total_income|floatformat:2 }} ₽</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if stat_type == 'outcome' %}active{% endif %}" href="{% url 'statistics_month_type' year month 'outcome' %}">
+      Outcome <span class="text-danger">-{{ total_outcome|floatformat:2 }} ₽</span>
+    </a>
+  </li>
+  {% else %}
+  <li class="nav-item">
+    <a class="nav-link {% if stat_type == 'income' %}active{% endif %}" href="{% url 'statistics_year_type' year 'income' %}">
+      Income <span class="text-success">+{{ total_income|floatformat:2 }} ₽</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if stat_type == 'outcome' %}active{% endif %}" href="{% url 'statistics_year_type' year 'outcome' %}">
+      Outcome <span class="text-danger">-{{ total_outcome|floatformat:2 }} ₽</span>
+    </a>
+  </li>
+  {% endif %}
+</ul>
+
+{% if stat_type == 'income' %}
+<div class="row">
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Income by Category</h5>
+        {% if income_data %}
+        <canvas id="incomeChart"></canvas>
+        {% else %}
+        <p class="text-muted text-center py-5">No income data</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Income Details</h5>
+        {% if income_data %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th class="text-end">Amount</th>
+                <th class="text-end">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in income_data %}
+              <tr>
+                <td>{{ item.category }}</td>
+                <td class="text-end">{{ item.amount|floatformat:2 }} ₽</td>
+                <td class="text-end">{{ item.percent|floatformat:1 }}%</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-5">No income data</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="row">
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Outcome by Category</h5>
+        {% if outcome_data %}
+        <canvas id="outcomeChart"></canvas>
+        {% else %}
+        <p class="text-muted text-center py-5">No outcome data</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">Outcome Details</h5>
+        {% if outcome_data %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th class="text-end">Amount</th>
+                <th class="text-end">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in outcome_data %}
+              <tr>
+                <td>{{ item.category }}</td>
+                <td class="text-end">{{ item.amount|floatformat:2 }} ₽</td>
+                <td class="text-end">{{ item.percent|floatformat:1 }}%</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-5">No outcome data</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const colors = [
+    '#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545',
+    '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0',
+    '#6c757d', '#adb5bd', '#198754', '#0d6efd', '#6f42c1'
+  ];
+
+  {% if stat_type == 'income' and income_data %}
+  new Chart(document.getElementById('incomeChart'), {
+    type: 'pie',
+    data: {
+      labels: [{% for item in income_data %}'{{ item.category }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+      datasets: [{
+        data: [{% for item in income_data %}{{ item.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+        backgroundColor: colors,
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: 'bottom'
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.raw;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              return context.label + ': ' + value.toLocaleString() + ' ₽ (' + percentage + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+  {% endif %}
+
+  {% if stat_type == 'outcome' and outcome_data %}
+  new Chart(document.getElementById('outcomeChart'), {
+    type: 'pie',
+    data: {
+      labels: [{% for item in outcome_data %}'{{ item.category }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+      datasets: [{
+        data: [{% for item in outcome_data %}{{ item.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+        backgroundColor: colors,
+      }]
+    },
+    options: {
+      plugins: {
+        legend: {
+          position: 'bottom'
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.raw;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              return context.label + ': ' + value.toLocaleString() + ' ₽ (' + percentage + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+  {% endif %}
+</script>
+{% endblock %}

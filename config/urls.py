@@ -14,6 +14,12 @@ urlpatterns = [
     path('transaction/<uuid:pk>/edit/', views.transaction_edit, name='transaction_edit'),
     path('transaction/<uuid:pk>/delete/', views.transaction_delete, name='transaction_delete'),
     
+    path('statistics/', views.statistics, name='statistics'),
+    path('statistics/<int:year>/', views.statistics, name='statistics_year'),
+    path('statistics/<int:year>/<int:month>/', views.statistics, name='statistics_month'),
+    path('statistics/<int:year>/<int:month>/<str:stat_type>/', views.statistics, name='statistics_month_type'),
+    path('statistics/<int:year>/<str:stat_type>/', views.statistics, name='statistics_year_type'),
+    
     path('assets/', views.assets, name='assets'),
     path('asset/add/', views.asset_add, name='asset_add'),
     path('asset/<uuid:pk>/edit/', views.asset_edit, name='asset_edit'),
