@@ -689,3 +689,56 @@ class TransactionCategoryTest(TestCase):
             date=timezone.now()
         )
         self.assertEqual(transaction.get_category_display(), 'Cashback')
+
+
+class TransactionDateTimeTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+            balance=Decimal('10000.00')
+        )
+
+    def test_transaction_datetime_stores_time(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        test_time = datetime(2026, 2, 21, 15, 30, 0)
+        test_datetime = make_aware(test_time)
+        
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('500.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            date=test_datetime
+        )
+        
+        transaction.refresh_from_db()
+        self.assertIsNotNone(transaction.date)
+        self.assertEqual(transaction.date.minute, 30)
+
+    def test_transaction_datetime_with_different_minutes(self):
+        from datetime import datetime
+        from django.utils.timezone import make_aware
+        
+        minutes = [0, 15, 30, 45, 59]
+        
+        for minute in minutes:
+            test_time = datetime(2026, 2, 21, 15, minute, 0)
+            test_datetime = make_aware(test_time)
+            
+            transaction = Transaction.objects.create(
+                user=self.user,
+                type=TransactionType.REFILL,
+                amount=Decimal('100.00'),
+                currency='RUB',
+                to_asset=self.asset,
+                date=test_datetime
+            )
+            
+            transaction.refresh_from_db()
+            self.assertEqual(transaction.date.minute, minute, f"Minute mismatch for minute {minute}")

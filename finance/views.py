@@ -103,12 +103,13 @@ def transactions(request, year=None, month=None):
 @login_required
 def transaction_add(request, year=None, month=None, day=None):
     initial_date = None
+    now = datetime.now()
     if year and month and day:
-        initial_date = make_aware(datetime(int(year), int(month), int(day)))
+        initial_date = make_aware(datetime(int(year), int(month), int(day), now.hour, now.minute))
     elif year and month:
-        initial_date = make_aware(datetime(int(year), int(month), 1))
+        initial_date = make_aware(datetime(int(year), int(month), 1, now.hour, now.minute))
     else:
-        initial_date = timezone.now()
+        initial_date = make_aware(now)
     
     assets = Asset.objects.filter(user=request.user, is_active=True)
     
@@ -118,7 +119,9 @@ def transaction_add(request, year=None, month=None, day=None):
         currency = request.POST.get('currency')
         category = request.POST.get('category')
         description = request.POST.get('description')
-        date = make_aware(datetime.strptime(request.POST.get('date'), '%Y-%m-%d'))
+        date_str = request.POST.get('date')
+        time_str = request.POST.get('time', '00:00')
+        date = make_aware(datetime.strptime(f'{date_str} {time_str}', '%Y-%m-%d %H:%M'))
         
         from_asset_id = request.POST.get('from_asset')
         to_asset_id = request.POST.get('to_asset')
@@ -143,6 +146,7 @@ def transaction_add(request, year=None, month=None, day=None):
         'transaction_categories': WasteCategory.choices,
         'refill_categories': RefillCategory.choices,
         'initial_date': initial_date.strftime('%Y-%m-%d'),
+        'initial_time': initial_date.strftime('%H:%M'),
     })
 
 
@@ -157,7 +161,7 @@ def transaction_edit(request, pk):
         transaction.currency = request.POST.get('currency')
         transaction.category = request.POST.get('category')
         transaction.description = request.POST.get('description')
-        transaction.date = make_aware(datetime.strptime(request.POST.get('date'), '%Y-%m-%d'))
+        transaction.date = make_aware(datetime.strptime(f"{request.POST.get('date')} {request.POST.get('time', '00:00')}", '%Y-%m-%d %H:%M'))
         
         from_asset_id = request.POST.get('from_asset')
         to_asset_id = request.POST.get('to_asset')
@@ -175,6 +179,7 @@ def transaction_edit(request, pk):
         'transaction_categories': WasteCategory.choices,
         'refill_categories': RefillCategory.choices,
         'initial_date': transaction.date.strftime('%Y-%m-%d'),
+        'initial_time': transaction.date.strftime('%H:%M'),
     })
 
 

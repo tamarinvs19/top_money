@@ -31,7 +31,10 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Date</label>
-            <input type="date" name="date" class="form-control" value="{{ transaction.date|date:'Y-m-d'|default:initial_date }}" required />
+            <div class="d-flex gap-2">
+              <input type="date" name="date" class="form-control" value="{{ transaction.date|date:'Y-m-d'|default:initial_date }}" required />
+              <input type="time" name="time" class="form-control" value="{{ transaction.date|time:'H:i'|default:initial_time }}" required />
+            </div>
           </div>
           <div class="mb-3" id="wasteCategoryGroup">
             <label class="form-label">Category</label>
