@@ -63,7 +63,9 @@
       <div class="card-body">
         <h5 class="card-title">Income by Category</h5>
         {% if income_data %}
-        <canvas id="incomeChart"></canvas>
+        <div style="height: 350px; position: relative;">
+          <canvas id="incomeChart"></canvas>
+        </div>
         {% else %}
         <p class="text-muted text-center py-5">No income data</p>
         {% endif %}
@@ -109,7 +111,9 @@
       <div class="card-body">
         <h5 class="card-title">Outcome by Category</h5>
         {% if outcome_data %}
-        <canvas id="outcomeChart"></canvas>
+        <div style="height: 350px; position: relative;">
+          <canvas id="outcomeChart"></canvas>
+        </div>
         {% else %}
         <p class="text-muted text-center py-5">No outcome data</p>
         {% endif %}
@@ -152,70 +156,129 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const colors = [
-    '#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545',
-    '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0',
-    '#6c757d', '#adb5bd', '#198754', '#0d6efd', '#6f42c1'
-  ];
+const outsideLabelsPlugin = {
+  id: 'outsideLabels',
+  afterDraw(chart) {
+    const { ctx, data, chartArea } = chart;
+    const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+    if (total === 0) return;
+    
+    ctx.save();
+    ctx.font = '11px sans-serif';
+    ctx.textBaseline = 'middle';
+    
+    const centerX = (chartArea.left + chartArea.right) / 2;
+    const centerY = (chartArea.top + chartArea.bottom) / 2;
+    const radius = Math.min(chartArea.width, chartArea.height) / 2;
+    
+    data.datasets[0].data.forEach((value, i) => {
+      const meta = chart.getDatasetMeta(0);
+      const arc = meta.data[i];
+      
+      const startAngle = arc.startAngle;
+      const endAngle = arc.endAngle;
+      const midAngle = (startAngle + endAngle) / 2;
+      
+      const lineStartX = centerX + Math.cos(midAngle) * radius;
+      const lineStartY = centerY + Math.sin(midAngle) * radius;
+      const lineEndX = centerX + Math.cos(midAngle) * (radius + 25);
+      const lineEndY = centerY + Math.sin(midAngle) * (radius + 25);
+      
+      const labelX = centerX + Math.cos(midAngle) * (radius + 35);
+      const textAlign = midAngle > -Math.PI/2 && midAngle < Math.PI/2 ? 'left' : 'right';
+      const label = data.labels[i];
+      const percent = ((value / total) * 100).toFixed(0);
+      
+      ctx.beginPath();
+      ctx.moveTo(lineStartX, lineStartY);
+      ctx.lineTo(lineEndX, lineEndY);
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      ctx.fillStyle = '#333';
+      ctx.textAlign = textAlign;
+      ctx.fillText(`${label} (${percent}%)`, labelX + (textAlign === 'left' ? 5 : -5), lineEndY);
+    });
+    
+    ctx.restore();
+  }
+};
 
-  {% if stat_type == 'income' and income_data %}
-  new Chart(document.getElementById('incomeChart'), {
-    type: 'pie',
-    data: {
-      labels: [{% for item in income_data %}'{{ item.category }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
-      datasets: [{
-        data: [{% for item in income_data %}{{ item.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}],
-        backgroundColor: colors,
-      }]
-    },
-    options: {
-      plugins: {
-        legend: {
-          position: 'bottom'
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const value = context.raw;
-              const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const percentage = ((value / total) * 100).toFixed(1);
-              return context.label + ': ' + value.toLocaleString() + ' ₽ (' + percentage + '%)';
-            }
+Chart.register(outsideLabelsPlugin);
+
+const colors = [
+  '#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545',
+  '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0',
+  '#6c757d', '#adb5bd', '#198754', '#0d6efd', '#6f42c1'
+];
+
+{% if stat_type == 'income' and income_data %}
+new Chart(document.getElementById('incomeChart'), {
+  type: 'pie',
+  data: {
+    labels: [{% for item in income_data %}'{{ item.category }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+    datasets: [{
+      data: [{% for item in income_data %}{{ item.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+      backgroundColor: colors,
+      borderWidth: 2,
+      borderColor: '#fff',
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const value = context.raw;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return context.label + ': ' + value.toLocaleString() + ' ₽ (' + percentage + '%)';
           }
         }
       }
     }
-  });
-  {% endif %}
+  }
+});
+{% endif %}
 
-  {% if stat_type == 'outcome' and outcome_data %}
-  new Chart(document.getElementById('outcomeChart'), {
-    type: 'pie',
-    data: {
-      labels: [{% for item in outcome_data %}'{{ item.category }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
-      datasets: [{
-        data: [{% for item in outcome_data %}{{ item.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}],
-        backgroundColor: colors,
-      }]
-    },
-    options: {
-      plugins: {
-        legend: {
-          position: 'bottom'
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const value = context.raw;
-              const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const percentage = ((value / total) * 100).toFixed(1);
-              return context.label + ': ' + value.toLocaleString() + ' ₽ (' + percentage + '%)';
-            }
+{% if stat_type == 'outcome' and outcome_data %}
+new Chart(document.getElementById('outcomeChart'), {
+  type: 'pie',
+  data: {
+    labels: [{% for item in outcome_data %}'{{ item.category }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+    datasets: [{
+      data: [{% for item in outcome_data %}{{ item.amount }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+      backgroundColor: colors,
+      borderWidth: 2,
+      borderColor: '#fff',
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const value = context.raw;
+            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+            const percentage = ((value / total) * 100).toFixed(1);
+            return context.label + ': ' + value.toLocaleString() + ' ₽ (' + percentage + '%)';
           }
         }
       }
     }
-  });
-  {% endif %}
+  }
+});
+{% endif %}
 </script>
 {% endblock %}
