@@ -218,7 +218,7 @@ class AssetViewsTest(TestCase):
         
         response = self.client.get(reverse('assets'))
         self.assertContains(response, 'Debit Card')
-        self.assertContains(response, 'CASH')
+        self.assertContains(response, 'Cash')
         self.assertContains(response, '3000')  # total for DEBIT_CARD
         self.assertContains(response, '500')   # total for CASH
     
