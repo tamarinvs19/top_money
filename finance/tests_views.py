@@ -217,7 +217,7 @@ class AssetViewsTest(TestCase):
         create_asset_with_balance(self.user, 'Cash', AssetType.CASH, 'RUB', Decimal('500'))
         
         response = self.client.get(reverse('assets'))
-        self.assertContains(response, 'DEBIT_CARD')
+        self.assertContains(response, 'Debit Card')
         self.assertContains(response, 'CASH')
         self.assertContains(response, '3000')  # total for DEBIT_CARD
         self.assertContains(response, '500')   # total for CASH
@@ -703,3 +703,275 @@ class StatisticsViewsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Month</a>')
         self.assertContains(response, f'>{self.current_month}/{self.current_year}<')
+
+
+class ProfileViewsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.user.email = 'test@example.com'
+        self.user.first_name = 'Test'
+        self.user.last_name = 'User'
+        self.user.save()
+        self.client.login(username='testuser', password='testpass123')
+    
+    def test_profile_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('profile'))
+        self.assertRedirects(response, f"{reverse('login')}?next=/profile/")
+    
+    def test_profile_get(self):
+        response = self.client.get(reverse('profile'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Profile')
+    
+    def test_profile_shows_username(self):
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'testuser')
+    
+    def test_profile_shows_email(self):
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'test@example.com')
+    
+    def test_profile_shows_first_name(self):
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'Test')
+    
+    def test_profile_shows_last_name(self):
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'User')
+    
+    def test_profile_shows_date_joined(self):
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'Date joined')
+    
+    def test_profile_shows_logout_button(self):
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'Logout')
+    
+    def test_profile_shows_download_button(self):
+        response = self.client.get(reverse('profile'))
+        self.assertContains(response, 'Download Transactions')
+
+
+class ExportTransactionsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('10000.00'))
+        self.client.login(username='testuser', password='testpass123')
+    
+    def test_export_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('export_transactions'))
+        self.assertRedirects(response, f"{reverse('login')}?next=/profile/export/")
+    
+    def test_export_returns_excel(self):
+        response = self.client.get(reverse('export_transactions'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response['Content-Type'],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    
+    def test_export_has_attachment_header(self):
+        response = self.client.get(reverse('export_transactions'))
+        self.assertTrue(response['Content-Disposition'].startswith('attachment; filename="transactions.xlsx"'))
+    
+    def test_export_contains_transaction_data(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='Salary',
+            description='Monthly salary',
+            date=timezone.now()
+        )
+        
+        response = self.client.get(reverse('export_transactions'))
+        self.assertEqual(response.status_code, 200)
+    
+    def test_export_contains_multiple_transactions(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='Salary',
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='Products',
+            date=timezone.now()
+        )
+        
+        response = self.client.get(reverse('export_transactions'))
+        response = self.client.get(reverse('export_transactions'))
+        self.assertEqual(response.status_code, 200)
+
+
+class ImportTransactionsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('10000.00'))
+        self.client.login(username='testuser', password='testpass123')
+    
+    def test_import_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse('import_transactions'))
+        self.assertRedirects(response, f"{reverse('login')}?next=/profile/import/")
+    
+    def test_import_get_redirects_to_profile(self):
+        response = self.client.get(reverse('import_transactions'))
+        self.assertRedirects(response, reverse('profile'))
+    
+    def test_import_no_file_selected(self):
+        response = self.client.post(reverse('import_transactions'), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No file selected')
+    
+    def test_import_with_empty_file(self):
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description'])
+        
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        response = self.client.post(reverse('import_transactions'), {'file': excel_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Successfully imported 0 transactions')
+    
+    def test_import_single_transaction(self):
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description'])
+        ws.append(['2026-02-20 12:00', 'Refill', 'Salary', '5000', 'RUB', '', 'Test Card', 'Monthly salary'])
+        
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        response = self.client.post(reverse('import_transactions'), {'file': excel_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Successfully imported 1 transactions')
+        self.assertTrue(Transaction.objects.filter(amount=Decimal('5000.00'), category='Salary').exists())
+    
+    def test_import_multiple_transactions(self):
+        Transaction.objects.filter(user=self.user).delete()
+        
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description'])
+        ws.append(['2026-02-20 12:00', 'Refill', 'Salary', '5000', 'RUB', '', 'Test Card', 'Test 1'])
+        ws.append(['2026-02-21 12:00', 'Waste', 'Products', '1000', 'RUB', 'Test Card', '', 'Test 2'])
+        
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        response = self.client.post(reverse('import_transactions'), {'file': excel_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Successfully imported 2 transactions')
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 2)
+    
+    def test_import_with_empty_description(self):
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description'])
+        ws.append(['2026-02-20 12:00', 'Refill', 'Salary', '5000', 'RUB', '', 'Test Card', None])
+        
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        response = self.client.post(reverse('import_transactions'), {'file': excel_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Successfully imported 1 transactions')
+    
+    def test_import_with_empty_category(self):
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description'])
+        ws.append(['2026-02-20 12:00', 'Refill', '', '5000', 'RUB', '', 'Test Card', 'Test'])
+        
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        response = self.client.post(reverse('import_transactions'), {'file': excel_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Successfully imported 1 transactions')
+        tx = Transaction.objects.first()
+        self.assertEqual(tx.category, '')
+    
+    def test_import_with_transfer_type(self):
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description'])
+        ws.append(['2026-02-20 12:00', 'Transfer', '', '1000', 'RUB', 'Test Card', 'Test Card', 'Transfer test'])
+        
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        response = self.client.post(reverse('import_transactions'), {'file': excel_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Successfully imported 1 transactions')
+        self.assertTrue(Transaction.objects.filter(type=TransactionType.TRANSFER).exists())
+    
+    def test_import_only_creates_for_current_user(self):
+        Transaction.objects.filter(user=self.user).delete()
+        
+        other_user = User.objects.create_user(username='other', password='otherpass')
+        other_asset = DebitCardAsset.objects.create(
+            user=other_user,
+            name='Other Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB'
+        )
+        
+        from openpyxl import Workbook
+        from io import BytesIO
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.append(['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description'])
+        ws.append(['2026-02-20 12:00', 'Refill', 'Salary', '99999', 'RUB', '', 'Other Card', 'Other user data'])
+        
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        response = self.client.post(reverse('import_transactions'), {'file': excel_file})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 1)
+        self.assertFalse(Transaction.objects.filter(user=other_user).exists())

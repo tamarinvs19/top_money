@@ -497,6 +497,140 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
 
 
 @login_required
+def profile(request):
+    return render(request, 'profile.html', {
+        'user': request.user,
+    })
+
+
+@login_required
+def export_transactions(request):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment
+
+    transactions = Transaction.objects.filter(
+        user=request.user
+    ).select_related('from_asset', 'to_asset').order_by('-date')
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Transactions"
+
+    headers = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
+
+    for row, t in enumerate(transactions, 2):
+        ws.cell(row=row, column=1, value=t.date.strftime('%Y-%m-%d %H:%M'))
+        ws.cell(row=row, column=2, value=t.get_type_display())
+        ws.cell(row=row, column=3, value=t.category or '')
+        ws.cell(row=row, column=4, value=float(t.amount))
+        ws.cell(row=row, column=5, value=t.currency)
+        ws.cell(row=row, column=6, value=t.from_asset.name if t.from_asset else '')
+        ws.cell(row=row, column=7, value=t.to_asset.name if t.to_asset else '')
+        ws.cell(row=row, column=8, value=t.description or '')
+
+    for col in ws.columns:
+        max_length = 0
+        column = col[0].column_letter
+        for cell in col:
+            if cell.value:
+                max_length = max(max_length, len(str(cell.value)))
+        ws.column_dimensions[column].width = min(max_length + 2, 50)
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="transactions.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required
+def import_transactions(request):
+    if request.method == 'POST':
+        from openpyxl import load_workbook
+        
+        excel_file = request.FILES.get('file')
+        if not excel_file:
+            return render(request, 'profile.html', {
+                'user': request.user,
+                'error': 'No file selected'
+            })
+        
+        try:
+            wb = load_workbook(excel_file)
+            ws = wb.active
+            
+            headers = [cell.value for cell in ws[1]]
+            date_idx = headers.index('Date') if 'Date' in headers else 0
+            type_idx = headers.index('Type') if 'Type' in headers else 1
+            category_idx = headers.index('Category') if 'Category' in headers else 2
+            amount_idx = headers.index('Amount') if 'Amount' in headers else 3
+            currency_idx = headers.index('Currency') if 'Currency' in headers else 4
+            from_asset_idx = headers.index('From Asset') if 'From Asset' in headers else 5
+            to_asset_idx = headers.index('To Asset') if 'To Asset' in headers else 6
+            description_idx = headers.index('Description') if 'Description' in headers else 7
+            
+            assets = {a.name: a for a in Asset.objects.filter(user=request.user)}
+            
+            imported_count = 0
+            for row in ws.iter_rows(min_row=2, values_only=True):
+                if not row[date_idx]:
+                    continue
+                
+                date_str = row[date_idx]
+                if isinstance(date_str, str):
+                    t_date = make_aware(datetime.strptime(date_str, '%Y-%m-%d %H:%M'))
+                else:
+                    t_date = make_aware(date_str)
+                
+                t_type_str = row[type_idx] if type_idx < len(row) else ''
+                t_type = TransactionType.WASTE
+                for choice in TransactionType.choices:
+                    if choice[1].lower() == t_type_str.lower():
+                        t_type = choice[0]
+                        break
+                
+                category = row[category_idx] if category_idx < len(row) and row[category_idx] else ''
+                amount = Decimal(str(row[amount_idx])) if amount_idx < len(row) else Decimal('0')
+                currency = row[currency_idx] if currency_idx < len(row) else 'RUB'
+                
+                from_asset_name = row[from_asset_idx] if from_asset_idx < len(row) else ''
+                to_asset_name = row[to_asset_idx] if to_asset_idx < len(row) else ''
+                description = row[description_idx] if description_idx < len(row) and row[description_idx] else ''
+                
+                from_asset = assets.get(from_asset_name) if from_asset_name else None
+                to_asset = assets.get(to_asset_name) if to_asset_name else None
+                
+                Transaction.objects.create(
+                    user=request.user,
+                    type=t_type,
+                    amount=amount,
+                    currency=currency,
+                    category=category,
+                    description=description,
+                    date=t_date,
+                    from_asset=from_asset,
+                    to_asset=to_asset,
+                )
+                imported_count += 1
+            
+            return render(request, 'profile.html', {
+                'user': request.user,
+                'success': f'Successfully imported {imported_count} transactions'
+            })
+        except Exception as e:
+            return render(request, 'profile.html', {
+                'user': request.user,
+                'error': f'Error importing file: {str(e)}'
+            })
+    
+    return redirect('profile')
+
+
+@login_required
 def transaction_delete(request, pk):
     transaction = get_object_or_404(Transaction, pk=pk, user=request.user)
     if request.method == 'POST':
