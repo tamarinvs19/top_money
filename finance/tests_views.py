@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset
+from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount
 
 
 def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
@@ -975,3 +975,114 @@ class ImportTransactionsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(Transaction.objects.filter(user=self.user).count(), 1)
         self.assertFalse(Transaction.objects.filter(user=other_user).exists())
+
+
+class AssetFormFieldsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+    
+    def test_asset_form_has_all_types_in_select(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'CASH')
+        self.assertContains(response, 'Cash')
+        self.assertContains(response, 'DEBIT_CARD')
+        self.assertContains(response, 'Debit Card')
+        self.assertContains(response, 'DEPOSIT')
+        self.assertContains(response, 'Deposit')
+        self.assertContains(response, 'CREDIT_CARD')
+        self.assertContains(response, 'Credit Card')
+        self.assertContains(response, 'BROKERAGE')
+        self.assertContains(response, 'Brokerage Account')
+        self.assertContains(response, 'SAVING_ACCOUNT')
+        self.assertContains(response, 'Saving Account')
+    
+    def test_cash_asset_form_shows_location_field(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'id="cashFields"')
+        self.assertContains(response, 'Location')
+    
+    def test_debit_card_form_shows_bank_name_and_last_4_digits(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'id="cardFields"')
+        self.assertContains(response, 'Bank Name')
+        self.assertContains(response, 'Last 4 Digits')
+    
+    def test_deposit_form_shows_interest_rate_and_term_fields(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'id="depositFields"')
+        self.assertContains(response, 'Interest Rate')
+        self.assertContains(response, 'Term (months)')
+    
+    def test_credit_card_form_shows_credit_limit_and_grace_period(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'id="creditCardFields"')
+        self.assertContains(response, 'Credit Limit')
+        self.assertContains(response, 'Grace Period')
+    
+    def test_brokerage_form_shows_broker_name_and_account_number(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'id="brokerageFields"')
+        self.assertContains(response, 'Broker Name')
+        self.assertContains(response, 'Account Number')
+    
+    def test_saving_account_form_shows_interest_rate_field(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'id="savingAccountFields"')
+        self.assertContains(response, 'Interest Rate')
+
+
+class SavingAccountViewsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+    
+    def test_create_saving_account(self):
+        response = self.client.post(reverse('asset_add'), {
+            'name': 'Emergency Fund',
+            'type': AssetType.SAVING_ACCOUNT,
+            'currency': 'RUB',
+            'balance': '50000',
+            'interest_rate': '5.5',
+            'bank_name': 'Em Bank'
+        })
+        self.assertRedirects(response, reverse('assets'))
+        asset = SavingAccount.objects.get(name='Emergency Fund')
+        self.assertEqual(asset.interest_rate, Decimal('5.5'))
+        self.assertEqual(asset.type, AssetType.SAVING_ACCOUNT)
+    
+    def test_edit_saving_account(self):
+        asset = SavingAccount.objects.create(
+            user=self.user,
+            name='Test Savings',
+            type=AssetType.SAVING_ACCOUNT,
+            currency='RUB',
+            interest_rate=Decimal('3.0')
+        )
+        url = reverse('asset_edit', args=[asset.pk])
+        response = self.client.post(url, {
+            'name': 'Updated Savings',
+            'type': AssetType.SAVING_ACCOUNT,
+            'currency': 'RUB',
+            'balance': '10000',
+            'interest_rate': '4.5',
+            'is_active': 'on',
+        })
+        asset.refresh_from_db()
+        self.assertEqual(asset.name, 'Updated Savings')
+        self.assertEqual(asset.interest_rate, Decimal('4.5'))
+    
+    def test_saving_account_edit_page_has_interest_rate(self):
+        asset = SavingAccount.objects.create(
+            user=self.user,
+            name='Test Savings',
+            type=AssetType.SAVING_ACCOUNT,
+            currency='RUB',
+            interest_rate=Decimal('3.0')
+        )
+        url = reverse('asset_edit', args=[asset.pk])
+        response = self.client.get(url)
+        self.assertContains(response, 'interest_rate')
+        self.assertContains(response, '3')

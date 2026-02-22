@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.db import models
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
-from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset
+from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount
 
 
 from django.http import HttpResponse
@@ -231,6 +231,18 @@ def asset_add(request):
                 bank_name=request.POST.get('bank_name', ''),
                 last_4_digits=request.POST.get('last_4_digits', ''),
             )
+        elif asset_type == AssetType.CREDIT_CARD:
+            asset = CreditCardAsset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                bank_name=request.POST.get('bank_name') or None,
+                credit_limit=request.POST.get('credit_limit') or None,
+                grace_period_days=request.POST.get('grace_period_days') or None,
+                last_4_digits=request.POST.get('last_4_digits', ''),
+                billing_day=request.POST.get('billing_day') or None,
+            )
         elif asset_type == AssetType.DEPOSIT:
             renewal_date = request.POST.get('renewal_date')
             asset = DepositAsset.objects.create(
@@ -238,21 +250,20 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
+                bank_name=request.POST.get('bank_name') or None,
                 interest_rate=request.POST.get('interest_rate') or None,
                 term_months=request.POST.get('term_months') or None,
                 renewal_date=renewal_date if renewal_date else None,
                 is_capitalized=request.POST.get('is_capitalized') == 'on',
             )
-        elif asset_type == AssetType.CREDIT_CARD:
-            asset = CreditCardAsset.objects.create(
+        elif asset_type == AssetType.SAVING_ACCOUNT:
+            asset = SavingAccount.objects.create(
                 user=request.user,
                 name=name,
                 type=asset_type,
                 currency=currency,
-                credit_limit=request.POST.get('credit_limit') or None,
-                grace_period_days=request.POST.get('grace_period_days') or None,
-                last_4_digits=request.POST.get('last_4_digits', ''),
-                billing_day=request.POST.get('billing_day') or None,
+                bank_name=request.POST.get('bank_name') or None,
+                interest_rate=request.POST.get('interest_rate') or None,
             )
         elif asset_type == AssetType.BROKERAGE:
             asset = BrokerageAsset.objects.create(
@@ -272,7 +283,7 @@ def asset_add(request):
                 currency=currency,
             )
         
-        if balance > 0:
+        if balance != 0:
             Transaction.objects.create(
                 user=request.user,
                 type=TransactionType.CHANGING_BALANCE,
@@ -294,19 +305,20 @@ def asset_add(request):
 @login_required
 def asset_edit(request, pk):
     asset = get_object_or_404(Asset, pk=pk, user=request.user)
-    
+    current_balance = asset.balance
+
     if asset.type == AssetType.CASH:
         asset = get_object_or_404(CashAsset, pk=pk)
     elif asset.type == AssetType.DEBIT_CARD:
         asset = get_object_or_404(DebitCardAsset, pk=pk)
-    elif asset.type == AssetType.DEPOSIT:
-        asset = get_object_or_404(DepositAsset, pk=pk)
     elif asset.type == AssetType.CREDIT_CARD:
         asset = get_object_or_404(CreditCardAsset, pk=pk)
+    elif asset.type == AssetType.DEPOSIT:
+        asset = get_object_or_404(DepositAsset, pk=pk)
+    elif asset.type == AssetType.SAVING_ACCOUNT:
+        asset = get_object_or_404(SavingAccount, pk=pk)
     elif asset.type == AssetType.BROKERAGE:
         asset = get_object_or_404(BrokerageAsset, pk=pk)
-    
-    current_balance = asset.balance
     
     if request.method == 'POST':
         asset.name = request.POST.get('name')
@@ -320,17 +332,21 @@ def asset_edit(request, pk):
         elif asset.type == AssetType.DEBIT_CARD:
             asset.bank_name = request.POST.get('bank_name', '')
             asset.last_4_digits = request.POST.get('last_4_digits', '')
-        elif asset.type == AssetType.DEPOSIT:
-            asset.interest_rate = request.POST.get('interest_rate') or None
-            asset.term_months = request.POST.get('term_months') or None
-            renewal_date = request.POST.get('renewal_date')
-            asset.renewal_date = renewal_date if renewal_date else None
-            asset.is_capitalized = request.POST.get('is_capitalized') == 'on'
         elif asset.type == AssetType.CREDIT_CARD:
+            asset.bank_name = request.POST.get('bank_name', '')
             asset.credit_limit = request.POST.get('credit_limit') or None
             asset.grace_period_days = request.POST.get('grace_period_days') or None
             asset.last_4_digits = request.POST.get('last_4_digits', '')
             asset.billing_day = request.POST.get('billing_day') or None
+        elif asset.type == AssetType.DEPOSIT:
+            asset.bank_name = request.POST.get('bank_name', '')
+            asset.interest_rate = request.POST.get('interest_rate') or None
+            asset.term_months = request.POST.get('term_months') or None
+            asset.renewal_date = request.POST.get('renewal_date') or None
+            asset.is_capitalized = request.POST.get('is_capitalized') == 'on'
+        elif asset.type == AssetType.SAVING_ACCOUNT:
+            asset.bank_name = request.POST.get('bank_name', '')
+            asset.interest_rate = request.POST.get('interest_rate') or None
         elif asset.type == AssetType.BROKERAGE:
             asset.broker_name = request.POST.get('broker_name', '')
             asset.account_number = request.POST.get('account_number', '')

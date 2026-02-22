@@ -41,11 +41,21 @@
             </div>
           </div>
 
-          <div id="cardFields" class="asset-fields" style="display: none;">
+          <div id="bankAssetFields" class="asset-fields" style="display: none;">
             <div class="mb-3">
               <label class="form-label">Bank Name</label>
               <input type="text" name="bank_name" class="form-control" value="{{ asset.bank_name|default:'' }}" />
             </div>
+          </div>
+
+          <div id="bankInvestmentFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Interest Rate (%)</label>
+              <input type="number" step="0.01" name="interest_rate" class="form-control" value="{{ asset.interest_rate|default:'' }}" />
+            </div>
+          </div>
+
+          <div id="cardFields" class="asset-fields" style="display: none;">
             <div class="mb-3">
               <label class="form-label">Last 4 Digits</label>
               <input type="text" name="last_4_digits" class="form-control" maxlength="4" value="{{ asset.last_4_digits|default:'' }}" />
@@ -53,25 +63,6 @@
           </div>
 
           <div id="debitCardFields" class="asset-fields" style="display: none;">
-          </div>
-
-          <div id="depositFields" class="asset-fields" style="display: none;">
-            <div class="mb-3">
-              <label class="form-label">Interest Rate (%)</label>
-              <input type="number" step="0.01" name="interest_rate" class="form-control" value="{{ asset.interest_rate|default:'' }}" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Term (months)</label>
-              <input type="number" name="term_months" class="form-control" value="{{ asset.term_months|default:'' }}" />
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Renewal Date</label>
-              <input type="date" name="renewal_date" class="form-control" value="{{ asset.renewal_date|default:'' }}" />
-            </div>
-            <div class="mb-3 form-check">
-              <input type="checkbox" name="is_capitalized" class="form-check-input" id="isCapitalized" {% if asset.is_capitalized %}checked{% endif %} />
-              <label class="form-check-label" for="isCapitalized">Interest Capitalized</label>
-            </div>
           </div>
 
           <div id="creditCardFields" class="asset-fields" style="display: none;">
@@ -87,6 +78,24 @@
               <label class="form-label">Billing Day</label>
               <input type="number" name="billing_day" class="form-control" min="1" max="31" value="{{ asset.billing_day|default:'' }}" />
             </div>
+          </div>
+
+          <div id="depositFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Term (months)</label>
+              <input type="number" name="term_months" class="form-control" value="{{ asset.term_months|default:'' }}" />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Renewal Date</label>
+              <input type="date" name="renewal_date" class="form-control" value="{{ asset.renewal_date|default:'' }}" />
+            </div>
+            <div class="mb-3 form-check">
+              <input type="checkbox" name="is_capitalized" class="form-check-input" id="isCapitalized" {% if asset.is_capitalized %}checked{% endif %} />
+              <label class="form-check-label" for="isCapitalized">Interest Capitalized</label>
+            </div>
+          </div>
+
+          <div id="savingAccountFields" class="asset-fields" style="display: none;">
           </div>
 
           <div id="brokerageFields" class="asset-fields" style="display: none;">
@@ -145,22 +154,33 @@ function toggleFields() {
   var type = document.getElementById('typeSelect').value;
   
   document.getElementById('cashFields').style.display = 'none';
+  document.getElementById('bankAssetFields').style.display = 'none';
   document.getElementById('cardFields').style.display = 'none';
   document.getElementById('debitCardFields').style.display = 'none';
-  document.getElementById('depositFields').style.display = 'none';
   document.getElementById('creditCardFields').style.display = 'none';
+  document.getElementById('bankInvestmentFields').style.display = 'none';
+  document.getElementById('depositFields').style.display = 'none';
+  document.getElementById('savingAccountFields').style.display = 'none';
   document.getElementById('brokerageFields').style.display = 'none';
   
   if (type === 'CASH') {
     document.getElementById('cashFields').style.display = 'block';
   } else if (type === 'DEBIT_CARD') {
+    document.getElementById('bankAssetFields').style.display = 'block';
     document.getElementById('cardFields').style.display = 'block';
     document.getElementById('debitCardFields').style.display = 'block';
-  } else if (type === 'DEPOSIT') {
-    document.getElementById('depositFields').style.display = 'block';
   } else if (type === 'CREDIT_CARD') {
+    document.getElementById('bankAssetFields').style.display = 'block';
     document.getElementById('cardFields').style.display = 'block';
     document.getElementById('creditCardFields').style.display = 'block';
+  } else if (type === 'DEPOSIT') {
+    document.getElementById('bankAssetFields').style.display = 'block';
+    document.getElementById('bankInvestmentFields').style.display = 'block';
+    document.getElementById('depositFields').style.display = 'block';
+  } else if (type === 'SAVING_ACCOUNT') {
+    document.getElementById('bankAssetFields').style.display = 'block';
+    document.getElementById('bankInvestmentFields').style.display = 'block';
+    document.getElementById('savingAccountFields').style.display = 'block';
   } else if (type === 'BROKERAGE') {
     document.getElementById('brokerageFields').style.display = 'block';
   }

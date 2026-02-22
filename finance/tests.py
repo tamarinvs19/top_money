@@ -6,7 +6,8 @@ from decimal import Decimal
 from finance.models import (
     Asset, CashAsset, DebitCardAsset, DepositAsset, 
     CreditCardAsset, BrokerageAsset, Transaction, 
-    AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType
+    AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType,
+    BankAsset, BankInvestment, SavingAccount
 )
 from finance.currency import CurrencyConverter
 
@@ -135,7 +136,7 @@ class AssetModelTest(TestCase):
             name='Test Cash',
             type=AssetType.CASH,
         )
-        self.assertEqual(str(asset), 'Test Cash (Cash)')
+        self.assertEqual(str(asset), 'Cash: Test Cash')
 
 
 class TransactionModelTest(TestCase):
@@ -749,3 +750,104 @@ class TransactionDateTimeTest(TestCase):
             
             transaction.refresh_from_db()
             self.assertEqual(transaction.date.minute, minute, f"Minute mismatch for minute {minute}")
+
+
+class BankAssetTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+
+    def test_card_asset_inherits_bank_name(self):
+        asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Sberbank Card',
+            type=AssetType.DEBIT_CARD,
+            bank_name='Sberbank',
+            last_4_digits='1234'
+        )
+        self.assertEqual(asset.bank_name, 'Sberbank')
+        self.assertIsInstance(asset, BankAsset)
+
+    def test_credit_card_inherits_bank_name(self):
+        asset = CreditCardAsset.objects.create(
+            user=self.user,
+            name='Tinkoff Credit',
+            type=AssetType.CREDIT_CARD,
+            bank_name='Tinkoff',
+            credit_limit=Decimal('100000.00')
+        )
+        self.assertEqual(asset.bank_name, 'Tinkoff')
+        self.assertIsInstance(asset, BankAsset)
+
+    def test_bank_asset_is_abstract(self):
+        self.assertTrue(BankAsset._meta.abstract)
+
+
+class BankInvestmentTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+
+    def test_deposit_asset_inherits_interest_rate(self):
+        asset = DepositAsset.objects.create(
+            user=self.user,
+            name='Savings Deposit',
+            type=AssetType.DEPOSIT,
+            interest_rate=Decimal('4.5')
+        )
+        self.assertEqual(asset.interest_rate, Decimal('4.5'))
+        self.assertIsInstance(asset, BankInvestment)
+
+    def test_bank_investment_is_abstract(self):
+        self.assertTrue(BankInvestment._meta.abstract)
+
+
+class SavingAccountTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+
+    def test_create_saving_account(self):
+        asset = SavingAccount.objects.create(
+            user=self.user,
+            name='Emergency Fund',
+            type=AssetType.SAVING_ACCOUNT,
+            interest_rate=Decimal('5.5'),
+            currency='RUB'
+        )
+        self.assertEqual(asset.name, 'Emergency Fund')
+        self.assertEqual(asset.interest_rate, Decimal('5.5'))
+        self.assertEqual(asset.type, AssetType.SAVING_ACCOUNT)
+        self.assertIsInstance(asset, BankInvestment)
+
+    def test_saving_account_inherits_from_asset(self):
+        asset = SavingAccount.objects.create(
+            user=self.user,
+            name='Savings',
+            type=AssetType.SAVING_ACCOUNT
+        )
+        self.assertIsInstance(asset, Asset)
+        self.assertIsInstance(asset, BankInvestment)
+
+    def test_saving_account_has_interest_rate(self):
+        asset = SavingAccount.objects.create(
+            user=self.user,
+            name='Test Savings',
+            type=AssetType.SAVING_ACCOUNT,
+            interest_rate=Decimal('3.25')
+        )
+        self.assertEqual(asset.interest_rate, Decimal('3.25'))
+
+    def test_saving_account_balance_from_transactions(self):
+        asset = SavingAccount.objects.create(
+            user=self.user,
+            name='Test Savings',
+            type=AssetType.SAVING_ACCOUNT,
+            interest_rate=Decimal('3.0')
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('10000.00'),
+            currency='RUB',
+            to_asset=asset,
+            date=timezone.now()
+        )
+        self.assertEqual(asset.balance, Decimal('10000.00'))

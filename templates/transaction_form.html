@@ -67,7 +67,7 @@
             <select name="from_asset" class="form-select">
               <option value="">-- Select --</option>
               {% for asset in assets %}
-              <option value="{{ asset.pk }}" {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset.name }}</option>
+              <option value="{{ asset.pk }}" {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset }}</option>
               {% endfor %}
             </select>
           </div>
@@ -76,7 +76,7 @@
             <select name="to_asset" class="form-select">
               <option value="">-- Select --</option>
               {% for asset in assets %}
-              <option value="{{ asset.pk }}" {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset.name }}</option>
+              <option value="{{ asset.pk }}" {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset }}</option>
               {% endfor %}
             </select>
           </div>

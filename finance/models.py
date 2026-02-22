@@ -13,8 +13,9 @@ from finance.currency import CurrencyConverter
 class AssetType(models.TextChoices):
     CASH = 'CASH', 'Cash'
     DEBIT_CARD = 'DEBIT_CARD', 'Debit Card'
-    DEPOSIT = 'DEPOSIT', 'Deposit'
     CREDIT_CARD = 'CREDIT_CARD', 'Credit Card'
+    DEPOSIT = 'DEPOSIT', 'Deposit'
+    SAVING_ACCOUNT = 'SAVING_ACCOUNT', 'Saving Account'
     BROKERAGE = 'BROKERAGE', 'Brokerage Account'
 
 
@@ -81,7 +82,7 @@ class Asset(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.name} ({self.get_type_display()})"
+        return f"{self.get_type_display()}: {self.name}"
 
     @property
     def balance(self):
@@ -124,8 +125,14 @@ class CashAsset(Asset):
         verbose_name_plural = 'Cash'
 
 
-class CardAsset(Asset):
+class BankAsset(Asset):
     bank_name = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        abstract = True
+
+
+class CardAsset(BankAsset):
     last_4_digits = models.CharField(max_length=4, blank=True)
 
     class Meta:
@@ -139,8 +146,14 @@ class DebitCardAsset(CardAsset):
         verbose_name_plural = 'Debit Cards'
 
 
-class DepositAsset(Asset):
+class BankInvestment(BankAsset):
     interest_rate = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+
+class DepositAsset(BankInvestment):
     term_months = models.PositiveIntegerField(blank=True, null=True)
     renewal_date = models.DateField(blank=True, null=True)
     is_capitalized = models.BooleanField(default=False)
@@ -148,6 +161,12 @@ class DepositAsset(Asset):
     class Meta:
         verbose_name = 'Deposit'
         verbose_name_plural = 'Deposits'
+
+
+class SavingAccount(BankInvestment):
+    class Meta:
+        verbose_name = 'Saving Account'
+        verbose_name_plural = 'Saving Accounts'
 
 
 class CreditCardAsset(CardAsset):

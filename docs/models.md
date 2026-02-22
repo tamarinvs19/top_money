@@ -44,13 +44,14 @@ Represents any financial account or container for money.
 
 ### Asset Types
 
-| Type        | Description                           |
-| ----------- | ------------------------------------- |
-| CASH        | Physical cash (case/wallet)           |
-| DEBIT_CARD  | Debit card (bank account)              |
-| DEPOSIT     | Bank deposit account                  |
-| CREDIT_CARD | Credit card (negative balance = debt) |
-| BROKERAGE   | Investment/brokerage account          |
+| Type         | Description                           |
+| ------------ | ------------------------------------- |
+| CASH         | Physical cash (case/wallet)           |
+| DEBIT_CARD   | Debit card (bank account)             |
+| DEPOSIT      | Bank deposit account                  |
+| CREDIT_CARD  | Credit card (negative balance = debt) |
+| BROKERAGE    | Investment/brokerage account          |
+| SAVING_ACCOUNT | Savings account with interest       |
 
 ### Asset-Specific Fields
 
@@ -68,20 +69,47 @@ Physical money in wallet, safe, or other location.
 
 ---
 
+### BankAsset (Abstract Base Class)
+
+Base class for bank-related assets (cards, deposits, savings accounts).
+
+| Field      | Type      | Description                  |
+| ---------- | --------- | ---------------------------- |
+| bank_name  | Char(100) | Bank name (e.g., "Sberbank") |
+
+**Inheritance:** `Asset` → `BankAsset` → `CardAsset` → `DebitCardAsset` / `CreditCardAsset`
+
+---
+
 ### CardAsset (Abstract Base Class)
 
-Base class for card-based assets (debit and credit cards).
+Base class for card-based assets (debit and credit cards). Inherits from BankAsset.
 
 | Field         | Type      | Description                      |
 | ------------- | --------- | -------------------------------- |
-| bank_name     | Char(100) | Bank name (e.g., "Sberbank")     |
+| bank_name     | Char(100) | Bank name (inherited from BankAsset) |
 | last_4_digits | Char(4)   | Last 4 digits of card (optional) |
+
+**Inheritance:** `Asset` → `BankAsset` → `CardAsset` → `DebitCardAsset` / `CreditCardAsset`
+
+---
+
+### BankInvestment (Abstract Base Class)
+
+Base class for interest-bearing bank accounts (deposits and savings accounts). Inherits from BankAsset.
+
+| Field         | Type         | Description                                    |
+| ------------- | ------------ | ---------------------------------------------- |
+| bank_name     | Char(100)    | Bank name (inherited from BankAsset)           |
+| interest_rate | Decimal(5,2) | Annual interest rate (optional)                |
+
+**Inheritance:** `Asset` → `BankAsset` → `BankInvestment` → `DepositAsset` / `SavingAccount`
 
 ---
 
 #### 2. DEBIT_CARD (Debit Card)
 
-Debit card linked to a bank account. Inherits fields from CardAsset.
+Debit card linked to a bank account. Inherits from CardAsset (which inherits from BankAsset).
 
 **No additional fields.**
 
@@ -91,11 +119,12 @@ Debit card linked to a bank account. Inherits fields from CardAsset.
 
 #### 3. DEPOSIT (Bank Deposit)
 
-Time deposit with interest accrual.
+Time deposit with interest accrual. Inherits from BankInvestment (which inherits from BankAsset).
 
 | Field          | Type         | Description                       |
 | -------------- | ------------ | --------------------------------- |
-| interest_rate  | Decimal(5,2) | Annual interest rate (e.g., 4.5)  |
+| bank_name      | Char(100)    | Bank name (inherited from BankAsset) |
+| interest_rate  | Decimal(5,2) | Annual interest rate (inherited from BankInvestment) |
 | term_months    | Integer      | Deposit term in months            |
 | renewal_date   | Date         | Auto-renewal date (optional)      |
 | is_capitalized | Boolean      | Interest capitalized to principal |
@@ -106,10 +135,12 @@ Time deposit with interest accrual.
 
 #### 4. CREDIT_CARD (Credit Card)
 
-Credit card with spending limit and grace period. Inherits fields from CardAsset.
+Credit card with spending limit and grace period. Inherits from CardAsset (which inherits from BankAsset).
 
 | Field             | Type          | Description                                 |
 | ----------------- | ------------- | ------------------------------------------- |
+| bank_name         | Char(100)     | Bank name (inherited from BankAsset)        |
+| last_4_digits     | Char(4)       | Last 4 digits (inherited from CardAsset)    |
 | credit_limit      | Decimal(15,2) | Maximum credit limit                        |
 | grace_period_days | Integer       | Days to pay without interest (e.g., 25)     |
 | billing_day       | Integer       | Day of month when billing cycle ends (1-31) |
@@ -132,24 +163,57 @@ Investment account for stocks, bonds, funds.
 
 ---
 
+#### 6. SAVING_ACCOUNT (Saving Account)
+
+Bank savings account with interest accrual. Inherits from BankInvestment (which inherits from BankAsset).
+
+| Field         | Type         | Description                                    |
+| ------------- | ------------ | ---------------------------------------------- |
+| bank_name     | Char(100)    | Bank name (inherited from BankAsset)           |
+| interest_rate | Decimal(5,2) | Annual interest rate (inherited from BankInvestment) |
+
+**Example:** "Tinkoff Savings", "Sberbank Top Up"
+
+---
+
 ### Assets Fields Summary Table
 
-| Field / Type   | CASH | CardAsset | DEBIT_CARD | DEPOSIT | CREDIT_CARD | BROKERAGE |
-| -------------- | :--: | :-------: | :--------: | :-----: | :----------: | :-------: |
-| name           |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
-| currency       |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
-| balance        |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
-| is_active      |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |
-| location       |  ✓   |     -     |     -      |    -    |      -       |     -     |
-| bank_name      |  -   |     ✓     |     ✓      |    ✓    |      ✓       |     -     |
-| last_4_digits  |  -   |     ✓     |     ✓      |    -    |      ✓       |     -     |
-| interest_rate  |  -   |     -     |     -      |    ✓    |      -       |     -     |
-| term_months    |  -   |     -     |     -      |    ✓    |      -       |     -     |
-| renewal_date   |  -   |     -     |     -      |    ✓    |      -       |     -     |
-| credit_limit   |  -   |     -     |     -      |    -    |      ✓       |     -     |
-| grace_period   |  -   |     -     |     -      |    -    |      ✓       |     -     |
-| broker_name    |  -   |     -     |     -      |    -    |      -       |     ✓     |
-| account_number |  -   |     -     |     -      |    -    |      -       |     ✓     |
+| Field / Type   | CASH | CardAsset | DEBIT_CARD | DEPOSIT | CREDIT_CARD | BROKERAGE | SAVING_ACCOUNT |
+| -------------- | :--: | :-------: | :--------: | :-----: | :----------: | :-------: | :-------------: |
+| name           |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
+| currency       |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
+| balance        |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
+| is_active      |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
+| location       |  ✓   |     -     |     -      |    -    |      -       |     -     |        -        |
+| bank_name      |  -   |     ✓     |     ✓      |    ✓    |      ✓       |     -     |        -        |
+| last_4_digits  |  -   |     ✓     |     ✓      |    -    |      ✓       |     -     |        -        |
+| interest_rate  |  -   |     -     |     -      |    ✓    |      -       |     -     |        ✓        |
+| term_months    |  -   |     -     |     -      |    ✓    |      -       |     -     |        -        |
+| renewal_date   |  -   |     -     |     -      |    ✓    |      -       |     -     |        -        |
+| is_capitalized |  -   |     -     |     -      |    ✓    |      -       |     -     |        -        |
+| credit_limit   |  -   |     -     |     -      |    -    |      ✓       |     -     |        -        |
+| grace_period   |  -   |     -     |     -      |    -    |      ✓       |     -     |        -        |
+| billing_day    |  -   |     -     |     -      |    -    |      ✓       |     -     |        -        |
+| broker_name    |  -   |     -     |     -      |    -    |      -       |     ✓     |        -        |
+| account_number |  -   |     -     |     -      |    -    |      -       |     ✓     |        -        |
+| brokerage_account_type |  -   |     -     |     -      |    -    |      -       |     ✓     |        -        |
+
+---
+
+### Asset Inheritance Hierarchy
+
+```
+Asset (abstract base)
+├── CashAsset
+├── BankAsset (abstract)
+│   ├── CardAsset (abstract)
+│   │   ├── DebitCardAsset
+│   │   └── CreditCardAsset
+│   └── BankInvestment (abstract)
+│       ├── DepositAsset
+│       └── SavingAccount
+└── BrokerageAsset
+```
 
 ---
 
