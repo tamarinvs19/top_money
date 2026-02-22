@@ -8,6 +8,26 @@ from datetime import timedelta
 from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset
 
 
+def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
+    """Helper to create an asset with initial balance using CHANGING_BALANCE transaction"""
+    asset = DebitCardAsset.objects.create(
+        user=user,
+        name=name,
+        type=asset_type,
+        currency=currency,
+    )
+    if balance_amount:
+        Transaction.objects.create(
+            user=user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=balance_amount,
+            currency=currency,
+            to_asset=asset,
+            date=timezone.now()
+        )
+    return asset
+
+
 class AuthViewsTest(TestCase):
     def setUp(self):
         self.client = Client()
@@ -61,13 +81,7 @@ class TransactionViewsTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('10000.00')
-        )
+        self.asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('10000.00'))
         self.client.login(username='testuser', password='testpass123')
     
     def test_transactions_list_requires_login(self):
@@ -192,21 +206,15 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, 'Assets')
     
     def test_assets_list_with_data(self):
-        DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('5000.00')
-        )
+        create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('5000.00'))
         response = self.client.get(reverse('assets'))
         self.assertContains(response, '5000.00')
         self.assertContains(response, 'Test Card')
     
     def test_assets_list_grouped_by_type(self):
-        DebitCardAsset.objects.create(user=self.user, name='Card1', type=AssetType.DEBIT_CARD, currency='RUB', balance=Decimal('1000'))
-        DebitCardAsset.objects.create(user=self.user, name='Card2', type=AssetType.DEBIT_CARD, currency='RUB', balance=Decimal('2000'))
-        CashAsset.objects.create(user=self.user, name='Cash', type=AssetType.CASH, currency='RUB', balance=Decimal('500'))
+        create_asset_with_balance(self.user, 'Card1', AssetType.DEBIT_CARD, 'RUB', Decimal('1000'))
+        create_asset_with_balance(self.user, 'Card2', AssetType.DEBIT_CARD, 'RUB', Decimal('2000'))
+        create_asset_with_balance(self.user, 'Cash', AssetType.CASH, 'RUB', Decimal('500'))
         
         response = self.client.get(reverse('assets'))
         self.assertContains(response, 'DEBIT_CARD')
@@ -215,8 +223,8 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, '500')   # total for CASH
     
     def test_assets_total_balance(self):
-        DebitCardAsset.objects.create(user=self.user, name='Card1', type=AssetType.DEBIT_CARD, currency='RUB', balance=Decimal('1000'))
-        CashAsset.objects.create(user=self.user, name='Cash', type=AssetType.CASH, currency='RUB', balance=Decimal('500'))
+        create_asset_with_balance(self.user, 'Card1', AssetType.DEBIT_CARD, 'RUB', Decimal('1000'))
+        create_asset_with_balance(self.user, 'Cash', AssetType.CASH, 'RUB', Decimal('500'))
         
         response = self.client.get(reverse('assets'))
         self.assertContains(response, 'Total Balance')
@@ -238,15 +246,11 @@ class AssetViewsTest(TestCase):
         })
         self.assertTrue(Asset.objects.filter(name='New Card').exists())
         self.assertRedirects(response, reverse('assets'))
+        asset = Asset.objects.get(name='New Card')
+        self.assertEqual(asset.balance, Decimal('5000'))
     
     def test_asset_edit_get(self):
-        asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('1000.00')
-        )
+        asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('1000.00'))
         url = reverse('asset_edit', args=[asset.pk])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -254,37 +258,28 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, 'Test Card')
     
     def test_asset_edit_post(self):
-        asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('1000.00')
-        )
+        asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('1000.00'))
         url = reverse('asset_edit', args=[asset.pk])
         response = self.client.post(url, {
             'name': 'Updated Card',
             'type': AssetType.DEBIT_CARD,
-            'currency': 'USD',
+            'currency': 'RUB',
             'balance': '2000',
             'bank_name': 'Tinkoff',
             'is_active': 'on',
         })
         asset.refresh_from_db()
         self.assertEqual(asset.name, 'Updated Card')
-        self.assertEqual(asset.currency, 'USD')
-        self.assertEqual(asset.balance, Decimal('2000'))
+        self.assertEqual(asset.currency, 'RUB')
+        asset_from_db = Asset.objects.get(pk=asset.pk)
+        self.assertEqual(asset_from_db.balance, Decimal('2000'))
     
     def test_asset_edit_can_add_field_that_was_null_at_creation(self):
-        asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('1000.00'),
-            bank_name='',
-            last_4_digits='',
-        )
+        asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('1000.00'))
+        asset.bank_name = ''
+        asset.last_4_digits = ''
+        asset.save()
+        
         url = reverse('asset_edit', args=[asset.pk])
         response = self.client.post(url, {
             'name': 'Test Card',
@@ -318,25 +313,15 @@ class AssetDeleteViewTest(TestCase):
         self.client.login(username='testuser', password='testpass123')
     
     def test_asset_delete_get(self):
-        asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('1000.00')
-        )
+        asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('1000.00'))
         url = reverse('asset_delete', args=[asset.pk])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
     
     def test_asset_delete_post(self):
-        asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('1000.00')
-        )
+        asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('1000.00'))
+        Transaction.objects.filter(to_asset=asset).delete()
+        Transaction.objects.filter(from_asset=asset).delete()
         url = reverse('asset_delete', args=[asset.pk])
         response = self.client.post(url)
         self.assertRedirects(response, reverse('assets'))
@@ -359,13 +344,7 @@ class TransactionDeleteViewTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('10000.00')
-        )
+        self.asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('10000.00'))
         self.client.login(username='testuser', password='testpass123')
     
     def test_transaction_delete_get(self):
@@ -420,13 +399,7 @@ class TransactionMonthNavigationTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('10000.00')
-        )
+        self.asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('10000.00'))
         self.client.login(username='testuser', password='testpass123')
     
     def test_prev_month_navigation(self):
@@ -452,13 +425,7 @@ class TransactionFormFieldsTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('10000.00')
-        )
+        self.asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('10000.00'))
         self.client.login(username='testuser', password='testpass123')
     
     def test_refill_shows_to_asset_only(self):
@@ -479,13 +446,7 @@ class StatisticsViewsTest(TestCase):
     def setUp(self):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
-        self.asset = DebitCardAsset.objects.create(
-            user=self.user,
-            name='Test Card',
-            type=AssetType.DEBIT_CARD,
-            currency='RUB',
-            balance=Decimal('10000.00')
-        )
+        self.asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('10000.00'))
         self.client.login(username='testuser', password='testpass123')
         self.current_month = timezone.now().month
         self.current_year = timezone.now().year

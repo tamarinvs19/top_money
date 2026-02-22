@@ -137,7 +137,7 @@ def transaction_add(request, year=None, month=None, day=None):
     
     return render(request, 'transaction_form.html', {
         'assets': assets,
-        'transaction_types': TransactionType.choices,
+        'transaction_types': [t for t in TransactionType.choices if t[0] != TransactionType.CHANGING_BALANCE],
         'transaction_categories': WasteCategory.choices,
         'refill_categories': RefillCategory.choices,
         'initial_date': initial_date.strftime('%Y-%m-%d'),
@@ -170,7 +170,7 @@ def transaction_edit(request, pk):
     return render(request, 'transaction_form.html', {
         'transaction': transaction,
         'assets': assets,
-        'transaction_types': TransactionType.choices,
+        'transaction_types': [t for t in TransactionType.choices if t[0] != TransactionType.CHANGING_BALANCE],
         'transaction_categories': WasteCategory.choices,
         'refill_categories': RefillCategory.choices,
         'initial_date': transaction.date.strftime('%Y-%m-%d'),
@@ -212,7 +212,6 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                balance=balance,
                 location=request.POST.get('location', ''),
             )
         elif asset_type == AssetType.DEBIT_CARD:
@@ -221,7 +220,6 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                balance=balance,
                 bank_name=request.POST.get('bank_name', ''),
                 last_4_digits=request.POST.get('last_4_digits', ''),
             )
@@ -232,7 +230,6 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                balance=balance,
                 interest_rate=request.POST.get('interest_rate') or None,
                 term_months=request.POST.get('term_months') or None,
                 renewal_date=renewal_date if renewal_date else None,
@@ -244,7 +241,6 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                balance=balance,
                 credit_limit=request.POST.get('credit_limit') or None,
                 grace_period_days=request.POST.get('grace_period_days') or None,
                 last_4_digits=request.POST.get('last_4_digits', ''),
@@ -256,7 +252,6 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                balance=balance,
                 broker_name=request.POST.get('broker_name', ''),
                 account_number=request.POST.get('account_number', ''),
                 brokerage_account_type=request.POST.get('brokerage_account_type', ''),
@@ -267,7 +262,17 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                balance=balance,
+            )
+        
+        if balance > 0:
+            Transaction.objects.create(
+                user=request.user,
+                type=TransactionType.CHANGING_BALANCE,
+                amount=balance,
+                currency=currency,
+                to_asset=asset,
+                description='Initial balance',
+                date=timezone.now()
             )
         
         return redirect('assets')
@@ -293,14 +298,14 @@ def asset_edit(request, pk):
     elif asset.type == AssetType.BROKERAGE:
         asset = get_object_or_404(BrokerageAsset, pk=pk)
     
+    current_balance = asset.balance
+    
     if request.method == 'POST':
         asset.name = request.POST.get('name')
         asset.currency = request.POST.get('currency')
         asset.is_active = request.POST.get('is_active') == 'on'
         
-        balance = request.POST.get('balance')
-        if balance:
-            asset.balance = Decimal(balance)
+        new_balance = Decimal(request.POST.get('balance', '0'))
         
         if asset.type == AssetType.CASH:
             asset.location = request.POST.get('location', '')
@@ -322,6 +327,29 @@ def asset_edit(request, pk):
             asset.broker_name = request.POST.get('broker_name', '')
             asset.account_number = request.POST.get('account_number', '')
             asset.brokerage_account_type = request.POST.get('brokerage_account_type', '')
+        
+        if new_balance != current_balance:
+            balance_diff = new_balance - current_balance
+            if balance_diff > 0:
+                Transaction.objects.create(
+                    user=request.user,
+                    type=TransactionType.CHANGING_BALANCE,
+                    amount=abs(balance_diff),
+                    currency=asset.currency,
+                    to_asset=asset,
+                    description='Balance correction',
+                    date=timezone.now()
+                )
+            else:
+                Transaction.objects.create(
+                    user=request.user,
+                    type=TransactionType.CHANGING_BALANCE,
+                    amount=abs(balance_diff),
+                    currency=asset.currency,
+                    from_asset=asset,
+                    description='Balance correction',
+                    date=timezone.now()
+                )
         
         asset.save()
         return redirect('assets')
@@ -394,7 +422,7 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
         user=request.user,
         date__gte=start_date,
         date__lte=end_date
-    )
+    ).exclude(type=TransactionType.CHANGING_BALANCE)
     
     income_by_category = {}
     outcome_by_category = {}

@@ -36,13 +36,31 @@ class AssetModelTest(TestCase):
             name='Wallet Cash',
             type=AssetType.CASH,
             currency='RUB',
-            balance=Decimal('5000.00'),
             location='Wallet'
         )
         self.assertEqual(asset.name, 'Wallet Cash')
         self.assertEqual(asset.type, AssetType.CASH)
         self.assertEqual(asset.location, 'Wallet')
         self.assertTrue(asset.is_active)
+        self.assertEqual(asset.balance, Decimal('0'))
+
+    def test_create_cash_asset_with_initial_balance(self):
+        asset = CashAsset.objects.create(
+            user=self.user,
+            name='Wallet Cash',
+            type=AssetType.CASH,
+            currency='RUB',
+            location='Wallet'
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=asset,
+            date=timezone.now()
+        )
+        self.assertEqual(asset.balance, Decimal('5000.00'))
 
     def test_create_bank_card_asset(self):
         asset = DebitCardAsset.objects.create(
@@ -50,7 +68,6 @@ class AssetModelTest(TestCase):
             name='Sberbank Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('15000.00'),
             bank_name='Sberbank',
             last_4_digits='1234'
         )
@@ -63,7 +80,6 @@ class AssetModelTest(TestCase):
             name='Savings Deposit',
             type=AssetType.DEPOSIT,
             currency='RUB',
-            balance=Decimal('100000.00'),
             interest_rate=Decimal('4.5'),
             term_months=12,
             renewal_date='2027-01-01',
@@ -78,14 +94,13 @@ class AssetModelTest(TestCase):
             name='Credit Card',
             type=AssetType.CREDIT_CARD,
             currency='RUB',
-            balance=Decimal('-5000.00'),
             credit_limit=Decimal('100000.00'),
             grace_period_days=25,
             last_4_digits='5678',
             billing_day=1
         )
         self.assertEqual(asset.credit_limit, Decimal('100000.00'))
-        self.assertEqual(asset.balance, Decimal('-5000.00'))
+        self.assertEqual(asset.balance, Decimal('0'))
 
     def test_create_brokerage_asset(self):
         asset = BrokerageAsset.objects.create(
@@ -93,7 +108,6 @@ class AssetModelTest(TestCase):
             name='Tinkoff Invest',
             type=AssetType.BROKERAGE,
             currency='RUB',
-            balance=Decimal('50000.00'),
             broker_name='Tinkoff',
             account_number='123456789',
             brokerage_account_type=BrokerageAccountType.BROKERAGE
@@ -106,13 +120,11 @@ class AssetModelTest(TestCase):
             user=self.user,
             name='Cash',
             type=AssetType.CASH,
-            balance=Decimal('1000.00')
         )
         DebitCardAsset.objects.create(
             user=self.user,
             name='Card',
             type=AssetType.DEBIT_CARD,
-            balance=Decimal('5000.00')
         )
         self.assertEqual(CashAsset.objects.filter(user=self.user).count(), 1)
         self.assertEqual(DebitCardAsset.objects.filter(user=self.user).count(), 1)
@@ -122,7 +134,6 @@ class AssetModelTest(TestCase):
             user=self.user,
             name='Test Cash',
             type=AssetType.CASH,
-            balance=Decimal('1000.00')
         )
         self.assertEqual(str(asset), 'Test Cash (Cash)')
 
@@ -138,7 +149,6 @@ class TransactionModelTest(TestCase):
             name='Sberbank Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('10000.00')
         )
 
     def test_create_refill_transaction(self):
@@ -175,7 +185,6 @@ class TransactionModelTest(TestCase):
             name='Tinkoff Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('0.00')
         )
         transaction = Transaction.objects.create(
             user=self.user,
@@ -286,10 +295,20 @@ class AssetBalanceCalculationTest(TestCase):
             name='Sberbank Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('10000.00')
+        )
+
+    def _set_initial_balance(self, amount):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=amount,
+            currency='RUB',
+            to_asset=self.asset,
+            date=timezone.now()
         )
 
     def test_balance_with_only_refill(self):
+        self._set_initial_balance(Decimal('10000.00'))
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.REFILL,
@@ -302,6 +321,7 @@ class AssetBalanceCalculationTest(TestCase):
         self.assertEqual(calculated, Decimal('15000.00'))
 
     def test_balance_with_only_waste(self):
+        self._set_initial_balance(Decimal('10000.00'))
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.WASTE,
@@ -314,6 +334,7 @@ class AssetBalanceCalculationTest(TestCase):
         self.assertEqual(calculated, Decimal('7000.00'))
 
     def test_balance_with_refill_and_waste(self):
+        self._set_initial_balance(Decimal('10000.00'))
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.REFILL,
@@ -334,6 +355,7 @@ class AssetBalanceCalculationTest(TestCase):
         self.assertEqual(calculated, Decimal('17000.00'))
 
     def test_balance_with_currency_conversion(self):
+        self._set_initial_balance(Decimal('10000.00'))
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.REFILL,
@@ -346,8 +368,6 @@ class AssetBalanceCalculationTest(TestCase):
         self.assertEqual(calculated, Decimal('100000.00'))
 
     def test_balance_empty_asset(self):
-        self.asset.balance = Decimal('0')
-        self.asset.save()
         calculated = self.asset.calculate_balance()
         self.assertEqual(calculated, Decimal('0'))
 
@@ -357,8 +377,14 @@ class AssetBalanceCalculationTest(TestCase):
         past = now - timedelta(days=2)
         future = now + timedelta(days=1)
 
-        self.asset.last_balance_calc_at = past - timedelta(hours=1)
-        self.asset.save()
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('10000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            date=past
+        )
 
         Transaction.objects.create(
             user=self.user,
@@ -392,8 +418,8 @@ class AssetBalanceCalculationTest(TestCase):
             name='Tinkoff Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('0.00')
         )
+        self._set_initial_balance(Decimal('10000.00'))
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.TRANSFER,
@@ -412,8 +438,8 @@ class AssetBalanceCalculationTest(TestCase):
             name='Other Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('0.00')
         )
+        self._set_initial_balance(Decimal('10000.00'))
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.REFILL,
@@ -425,36 +451,19 @@ class AssetBalanceCalculationTest(TestCase):
         calculated = self.asset.calculate_balance()
         self.assertEqual(calculated, Decimal('10000.00'))
 
-    def test_balance_includes_initial_balance(self):
-        self.asset.balance = Decimal('5000.00')
-        self.asset.save()
-        Transaction.objects.create(
-            user=self.user,
-            type=TransactionType.REFILL,
-            amount=Decimal('3000.00'),
-            currency='RUB',
-            to_asset=self.asset,
-            date=timezone.now()
-        )
-        calculated = self.asset.calculate_balance()
-        self.assertEqual(calculated, Decimal('8000.00'))
-
-    def test_balance_only_counts_after_updated_at(self):
+    def test_balance_counts_all_transactions(self):
         from datetime import timedelta
         now = timezone.now()
-        old_date = now - timedelta(days=3)
-        new_date = now - timedelta(days=2)
         
-        self.asset.last_balance_calc_at = new_date - timedelta(hours=1)
-        self.asset.save()
-
+        self._set_initial_balance(Decimal('10000.00'))
+        
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.WASTE,
             amount=Decimal('5000.00'),
             currency='RUB',
             from_asset=self.asset,
-            date=old_date
+            date=now - timedelta(days=3)
         )
         Transaction.objects.create(
             user=self.user,
@@ -462,14 +471,14 @@ class AssetBalanceCalculationTest(TestCase):
             amount=Decimal('3000.00'),
             currency='RUB',
             to_asset=self.asset,
-            date=new_date
+            date=now - timedelta(days=2)
         )
 
         calculated = self.asset.calculate_balance()
-        self.assertEqual(calculated, Decimal('13000.00'))
+        self.assertEqual(calculated, Decimal('8000.00'))
 
 
-class AssetUpdateBalanceTest(TestCase):
+class AssetChangingBalanceTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username='testuser',
@@ -480,90 +489,90 @@ class AssetUpdateBalanceTest(TestCase):
             name='Sberbank Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('10000.00')
         )
 
-    def test_update_balance_saves_value(self):
+    def test_balance_property_returns_calculated_balance(self):
         Transaction.objects.create(
             user=self.user,
-            type=TransactionType.REFILL,
-            amount=Decimal('5000.00'),
-            currency='RUB',
-            to_asset=self.asset,
-            date=timezone.now()
-        )
-        self.asset.update_balance()
-        self.asset.refresh_from_db()
-        self.assertEqual(self.asset.balance, Decimal('15000.00'))
-
-    def test_update_balance_updates_last_calc_time(self):
-        from datetime import timedelta
-        now = timezone.now()
-        past = now - timedelta(days=1)
-        
-        self.asset.update_balance(at_time=past)
-        self.asset.refresh_from_db()
-        self.assertEqual(self.asset.last_balance_calc_at, past)
-
-    def test_balance_uses_last_balance_calc_at_as_start(self):
-        from datetime import timedelta
-        now = timezone.now()
-        
-        self.asset.last_balance_calc_at = now - timedelta(hours=1)
-        self.asset.save()
-        
-        old_tx = Transaction.objects.create(
-            user=self.user,
-            type=TransactionType.WASTE,
+            type=TransactionType.CHANGING_BALANCE,
             amount=Decimal('10000.00'),
             currency='RUB',
-            from_asset=self.asset,
-            date=now - timedelta(hours=2)
-        )
-        
-        calculated = self.asset.calculate_balance()
-        self.assertEqual(calculated, Decimal('10000.00'))
-
-    def test_update_balance_returns_balance(self):
-        Transaction.objects.create(
-            user=self.user,
-            type=TransactionType.WASTE,
-            amount=Decimal('2000.00'),
-            currency='RUB',
-            from_asset=self.asset,
+            to_asset=self.asset,
             date=timezone.now()
         )
-        result = self.asset.update_balance()
-        self.assertEqual(result, Decimal('8000.00'))
-
-    def test_update_balance_at_specific_time(self):
-        from datetime import timedelta
-        now = timezone.now()
-        past = now - timedelta(days=2)
-        
-        self.asset.last_balance_calc_at = past - timedelta(hours=1)
-        self.asset.save()
-        
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.REFILL,
             amount=Decimal('5000.00'),
             currency='RUB',
             to_asset=self.asset,
-            date=past
+            date=timezone.now()
+        )
+        self.assertEqual(self.asset.balance, Decimal('15000.00'))
+
+    def test_changing_balance_transaction_increases_balance(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            date=timezone.now()
+        )
+        self.assertEqual(self.asset.balance, Decimal('5000.00'))
+
+    def test_changing_balance_transaction_decreases_balance(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('3000.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            date=timezone.now()
+        )
+        self.assertEqual(self.asset.balance, Decimal('-3000.00'))
+
+    def test_changing_balance_excluded_from_summary(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            date=timezone.now()
         )
         Transaction.objects.create(
             user=self.user,
             type=TransactionType.REFILL,
-            amount=Decimal('3000.00'),
+            amount=Decimal('2000.00'),
             currency='RUB',
             to_asset=self.asset,
-            date=now
+            date=timezone.now()
         )
+        non_changing = Transaction.objects.filter(
+            user=self.user
+        ).exclude(type=TransactionType.CHANGING_BALANCE)
+        self.assertEqual(non_changing.count(), 1)
 
-        self.asset.update_balance(at_time=past)
-        self.asset.refresh_from_db()
-        self.assertEqual(self.asset.balance, Decimal('15000.00'))
+    def test_balance_calculation_includes_changing_balance_transactions(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('2000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            date=timezone.now()
+        )
+        calculated = self.asset.calculate_balance()
+        self.assertEqual(calculated, Decimal('7000.00'))
 
 
 class TransactionCategoryTest(TestCase):
@@ -574,7 +583,6 @@ class TransactionCategoryTest(TestCase):
             name='Test Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('10000.00')
         )
 
     def test_create_waste_transaction_with_category(self):
@@ -699,7 +707,6 @@ class TransactionDateTimeTest(TestCase):
             name='Test Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            balance=Decimal('10000.00')
         )
 
     def test_transaction_datetime_stores_time(self):

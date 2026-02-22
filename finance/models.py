@@ -26,6 +26,7 @@ class TransactionType(models.TextChoices):
     WASTE = 'WASTE', 'Waste'
     TRANSFER = 'TRANSFER', 'Transfer'
     REFILL = 'REFILL', 'Refill'
+    CHANGING_BALANCE = 'CHANGING_BALANCE', 'Changing Balance'
 
 
 class WasteCategory(models.TextChoices):
@@ -62,11 +63,9 @@ class Asset(models.Model):
     name = models.CharField(max_length=100)
     type = models.CharField(max_length=20, choices=AssetType.choices)
     currency = models.CharField(max_length=3, default='RUB')
-    balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    last_balance_calc_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -74,18 +73,18 @@ class Asset(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_type_display()})"
 
+    @property
+    def balance(self):
+        return self.calculate_balance()
+
     def calculate_balance(self, at_time=None):
         if at_time is None:
             at_time = timezone.now()
 
-        start_time = self.last_balance_calc_at if self.last_balance_calc_at else self.created_at
-
         incoming = self.incoming_transactions.filter(
-            date__gte=start_time,
             date__lte=at_time
         )
         outgoing = self.outgoing_transactions.filter(
-            date__gte=start_time,
             date__lte=at_time
         )
 
@@ -104,17 +103,7 @@ class Asset(models.Model):
                 amount = CurrencyConverter.convert(amount, t.currency, self.currency)
             total_out += amount
 
-        return self.balance + total_in - total_out
-
-    def update_balance(self, at_time=None):
-        if at_time is None:
-            at_time = timezone.now()
-        
-        new_balance = self.calculate_balance(at_time)
-        self.balance = new_balance
-        self.last_balance_calc_at = at_time
-        self.save()
-        return self.balance
+        return total_in - total_out
 
 
 class CashAsset(Asset):
@@ -178,7 +167,7 @@ class BrokerageAsset(Asset):
 class Transaction(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
-    type = models.CharField(max_length=10, choices=TransactionType.choices)
+    type = models.CharField(max_length=20, choices=TransactionType.choices)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     currency = models.CharField(max_length=3, default='RUB')
     from_asset = models.ForeignKey(
@@ -205,3 +194,6 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} - {self.amount} {self.currency}"
+    
+    def type_label(self):
+        return dict(TransactionType.choices).get(self.type)

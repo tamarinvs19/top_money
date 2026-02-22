@@ -11,9 +11,13 @@
           <div class="mb-3">
             <label class="form-label">Type</label>
             <select name="type" class="form-select" id="typeSelect" onchange="toggleFields()" {% if transaction %}disabled{% endif %}>
-              {% for value, label in transaction_types %}
-              <option value="{{ value }}" {% if transaction and transaction.type == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
+              {% if transaction %}
+                <option value="{{ transaction.type }}" selected>{{ transaction.type_label }}</option>
+              {% else %}
+                {% for value, label in transaction_types %}
+                <option value="{{ value }}" {% if transaction and transaction.type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              {% endif %}
             </select>
             {% if transaction %}<input type="hidden" name="type" value="{{ transaction.type }}" />{% endif %}
           </div>
