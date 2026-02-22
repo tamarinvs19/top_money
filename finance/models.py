@@ -48,6 +48,7 @@ class WasteCategory(models.TextChoices):
     HOUSEHOLD = 'HOUSEHOLD', 'Household'
     PERSONAL = 'PERSONAL', 'Personal'
     LEISURE = 'LEISURE', 'Leisure'
+    ENTERTAINMENT = 'ENTERTAINMENT', 'Entertainment'
     CLOTHING_AND_SHOES = 'CLOTHING_AND_SHOES', 'Clothing and shoes'
     SPORT = 'SPORT', 'Sport'
     HEALTH_AND_BEAUTY = 'HEALTH_AND_BEAUTY', 'Health and beauty'
