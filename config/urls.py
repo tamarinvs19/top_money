@@ -8,6 +8,8 @@ urlpatterns = [
     
     path('', views.transactions, name='transactions'),
     path('<int:year>/<int:month>/', views.transactions, name='transactions_month'),
+    path('transactions/<uuid:asset_uuid>/', views.transactions, name='transactions_asset'),
+    path('transactions/<int:year>/<int:month>/<uuid:asset_uuid>/', views.transactions, name='transactions_month_asset'),
     
     path('transaction/add/', views.transaction_add, name='transaction_add'),
     path('transaction/add/<int:year>/<int:month>/<int:day>/', views.transaction_add, name='transaction_add_day'),

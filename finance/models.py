@@ -1,8 +1,10 @@
+from inspect import stack
 import uuid
 from decimal import Decimal
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.forms.widgets import static
 from django.utils import timezone
 
 from finance.currency import CurrencyConverter
@@ -16,6 +18,10 @@ class AssetType(models.TextChoices):
     BROKERAGE = 'BROKERAGE', 'Brokerage Account'
 
 
+def get_asset_type_label(name: str):
+    return dict(AssetType.choices).get(name, "")
+
+
 class BrokerageAccountType(models.TextChoices):
     BROKERAGE = 'BROKERAGE', 'Brokerage'
     IIS = 'IIS', 'Individual Investment Account'
@@ -27,6 +33,10 @@ class TransactionType(models.TextChoices):
     TRANSFER = 'TRANSFER', 'Transfer'
     REFILL = 'REFILL', 'Refill'
     CHANGING_BALANCE = 'CHANGING_BALANCE', 'Changing Balance'
+
+
+def get_transaction_type_label(name: str):
+    return dict(TransactionType.choices).get(name, "")
 
 
 class WasteCategory(models.TextChoices):
@@ -196,4 +206,4 @@ class Transaction(models.Model):
         return f"{self.get_type_display()} - {self.amount} {self.currency}"
     
     def type_label(self):
-        return dict(TransactionType.choices).get(self.type)
+        return get_transaction_type_label(self.type)

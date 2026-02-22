@@ -9,9 +9,20 @@
 <div class="card mb-2">
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-center">
-      <a href="{% url 'transactions_month' prev_month.year prev_month.month %}" class="btn btn-sm btn-outline-secondary">&larr; Prev</a>
-      <h4 class="mb-0">{{ month }}/{{ year }}</h4>
-      <a href="{% url 'transactions_month' next_month.year next_month.month %}" class="btn btn-sm btn-outline-secondary">Next &rarr;</a>
+      {% if asset %}
+        <a href="{% url 'transactions_month_asset' prev_month.year prev_month.month asset.id %}" class="btn btn-sm btn-outline-secondary">&larr; Prev</a>
+        <div class="row align-items-center justify-content-center">
+          <div class="col">
+            <h6 class="mb-0">{{ month }}/{{ year }}</h6>
+            <h6 class="mb-0 text-center">{{ asset.name }}</h6>
+          </div>
+        </div>
+        <a href="{% url 'transactions_month_asset' next_month.year next_month.month asset.id %}" class="btn btn-sm btn-outline-secondary">Next &rarr;</a>
+      {% else %}
+        <a href="{% url 'transactions_month' prev_month.year prev_month.month %}" class="btn btn-sm btn-outline-secondary">&larr; Prev</a>
+        <h4 class="mb-0">{{ month }}/{{ year }}</h4>
+        <a href="{% url 'transactions_month' next_month.year next_month.month %}" class="btn btn-sm btn-outline-secondary">Next &rarr;</a>
+      {% endif %}
     </div>
     <div class="row text-center mt-3">
       <div class="col">

@@ -7,8 +7,9 @@ from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from django.db import models
 
-from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType
+from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
 from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset
 
 
@@ -28,7 +29,7 @@ def signup(request):
 
 
 @login_required
-def transactions(request, year=None, month=None):
+def transactions(request, year=None, month=None, asset_uuid=None):
     today = timezone.now()
     if year is None:
         year = today.year
@@ -55,6 +56,11 @@ def transactions(request, year=None, month=None):
         date__gte=start_date,
         date__lte=end_date
     ).select_related('from_asset', 'to_asset').order_by('-date')
+    
+    if asset_uuid:
+        transactions_list = transactions_list.filter(
+            models.Q(from_asset_id=asset_uuid) | models.Q(to_asset_id=asset_uuid)
+        )
     
     grouped = {}
     for t in transactions_list:
@@ -87,6 +93,7 @@ def transactions(request, year=None, month=None):
         'transactions_by_day': grouped,
         'year': int(year),
         'month': int(month),
+        'asset': Asset.objects.filter(id=asset_uuid).first() or "",
         'prev_month': prev_month,
         'next_month': next_month,
         'month_income': month_income,
@@ -186,10 +193,11 @@ def assets(request):
     total_balance = Decimal('0')
     
     for asset in assets_list:
-        if asset.type not in grouped:
-            grouped[asset.type] = {'assets': [], 'total': Decimal('0')}
-        grouped[asset.type]['assets'].append(asset)
-        grouped[asset.type]['total'] += asset.balance
+        asset_type = get_asset_type_label(asset.type)
+        if asset_type not in grouped:
+            grouped[asset_type] = {'assets': [], 'total': Decimal('0')}
+        grouped[asset_type]['assets'].append(asset)
+        grouped[asset_type]['total'] += asset.balance
         total_balance += asset.balance
     
     return render(request, 'assets.html', {

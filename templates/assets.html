@@ -27,12 +27,15 @@
   </div>
   <div class="card-body p-0">
     {% for asset in type_data.assets %}
-    <div class="card-body border-bottom">
-      <a href="{% url 'asset_edit' asset.pk %}" class="transaction-link d-flex justify-content-between align-items-center">
+    <div class="card-body border-bottom d-flex justify-content-between align-items-center">
+      <a href="{% url 'transactions_asset' asset.pk %}" class="transaction-link d-flex justify-content-between align-items-center" style="width: 100%">
         <div>
           <strong>{{ asset.name }}</strong>
         </div>
-        <div class="text-end">
+        <div class="d-flex align-items-center gap-2">
+          <a href="{% url 'asset_edit' asset.pk %}" class="text-decoration-none" style="margin-right: 0.5rem;">
+            <i class="bi bi-pencil"></i>
+          </a>
           <strong class="{% if asset.balance >= 0 %}text-dark{% else %}text-danger{% endif %}">
             {{ asset.balance|floatformat:2 }}
           </strong>
