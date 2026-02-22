@@ -543,8 +543,8 @@ def export_transactions(request):
         ws.cell(row=row, column=3, value=t.category or '')
         ws.cell(row=row, column=4, value=float(t.amount))
         ws.cell(row=row, column=5, value=t.currency)
-        ws.cell(row=row, column=6, value=t.from_asset.name if t.from_asset else '')
-        ws.cell(row=row, column=7, value=t.to_asset.name if t.to_asset else '')
+        ws.cell(row=row, column=6, value=f'{t.from_asset.type}: {t.from_asset.name}' if t.from_asset else '')
+        ws.cell(row=row, column=7, value=f'{t.to_asset.type}: {t.to_asset.name}' if t.to_asset else '')
         ws.cell(row=row, column=8, value=t.description or '')
 
     for col in ws.columns:
@@ -589,7 +589,7 @@ def import_transactions(request):
             to_asset_idx = headers.index('To Asset') if 'To Asset' in headers else 6
             description_idx = headers.index('Description') if 'Description' in headers else 7
             
-            assets = {a.name: a for a in Asset.objects.filter(user=request.user)}
+            assets = {f"{a.type}: {a.name}": a for a in Asset.objects.filter(user=request.user)}
             
             imported_count = 0
             for row in ws.iter_rows(min_row=2, values_only=True):
