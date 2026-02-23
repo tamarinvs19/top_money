@@ -563,11 +563,77 @@ def export_transactions(request):
     return response
 
 
+import csv
+import io
+
+
+def import_transactions_csv(request, csv_file):
+    assets = {f"{a.type}: {a.name}": a for a in Asset.objects.filter(user=request.user)}
+    
+    decoded = csv_file.read().decode('utf-8-sig')
+    reader = csv.reader(io.StringIO(decoded))
+    
+    headers = next(reader)
+    date_idx = headers.index('Date') if 'Date' in headers else 0
+    type_idx = headers.index('Type') if 'Type' in headers else 1
+    category_idx = headers.index('Category') if 'Category' in headers else 2
+    amount_idx = headers.index('Amount') if 'Amount' in headers else 3
+    currency_idx = headers.index('Currency') if 'Currency' in headers else 4
+    from_asset_idx = headers.index('From Asset') if 'From Asset' in headers else 5
+    to_asset_idx = headers.index('To Asset') if 'To Asset' in headers else 6
+    description_idx = headers.index('Description') if 'Description' in headers else 7
+    
+    imported_count = 0
+    for row in reader:
+        if not row[date_idx]:
+            continue
+        
+        date_str = row[date_idx]
+        if isinstance(date_str, str):
+            t_date = make_aware(datetime.strptime(date_str, '%Y-%m-%d %H:%M'))
+        else:
+            t_date = make_aware(date_str)
+        
+        t_type_str = row[type_idx] if type_idx < len(row) else ''
+        t_type = TransactionType.WASTE
+        for choice in TransactionType.choices:
+            if choice[1].lower() == t_type_str.lower():
+                t_type = choice[0]
+                break
+        
+        category = row[category_idx] if category_idx < len(row) and row[category_idx] else ''
+        amount = Decimal(str(row[amount_idx])) if amount_idx < len(row) else Decimal('0')
+        currency = row[currency_idx] if currency_idx < len(row) else 'RUB'
+        
+        from_asset_name = row[from_asset_idx] if from_asset_idx < len(row) else ''
+        to_asset_name = row[to_asset_idx] if to_asset_idx < len(row) else ''
+        description = row[description_idx] if description_idx < len(row) and row[description_idx] else ''
+        
+        from_asset = assets.get(from_asset_name) if from_asset_name else None
+        to_asset = assets.get(to_asset_name) if to_asset_name else None
+        
+        Transaction.objects.create(
+            user=request.user,
+            type=t_type,
+            amount=amount,
+            currency=currency,
+            category=category,
+            description=description,
+            date=t_date,
+            from_asset=from_asset,
+            to_asset=to_asset,
+        )
+        imported_count += 1
+    
+    return render(request, 'profile.html', {
+        'user': request.user,
+        'success': f'Successfully imported {imported_count} transactions'
+    })
+
+
 @login_required
 def import_transactions(request):
     if request.method == 'POST':
-        from openpyxl import load_workbook
-        
         excel_file = request.FILES.get('file')
         if not excel_file:
             return render(request, 'profile.html', {
@@ -576,6 +642,12 @@ def import_transactions(request):
             })
         
         try:
+            file_name = excel_file.name.lower()
+            if file_name.endswith('.csv'):
+                return import_transactions_csv(request, excel_file)
+            
+            from openpyxl import load_workbook
+            
             wb = load_workbook(excel_file)
             ws = wb.active
             

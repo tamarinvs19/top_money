@@ -59,13 +59,13 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="importModalLabel">Load Transactions from Excel</h5>
+        <h5 class="modal-title" id="importModalLabel">Load Transactions from Excel or CSV</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form method="post" action="{% url 'import_transactions' %}" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="modal-body">
-          <p>Select an Excel file (.xlsx) with the following columns:</p>
+          <p>Select an Excel file (.xlsx) or CSV file (.csv) with the following columns:</p>
           <ul class="small text-muted">
             <li>Date (format: YYYY-MM-DD HH:MM)</li>
             <li>Type (Refill, Waste, Transfer)</li>
@@ -77,8 +77,8 @@
             <li>Description (optional)</li>
           </ul>
           <div class="mb-3">
-            <label for="file" class="form-label">Excel file</label>
-            <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
+            <label for="file" class="form-label">Excel or CSV file</label>
+            <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.csv" required>
           </div>
         </div>
         <div class="modal-footer">
