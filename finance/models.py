@@ -66,6 +66,7 @@ class RefillCategory(models.TextChoices):
     SALARY = 'SALARY', 'Salary'
     BONUS = 'BONUS', 'Bonus'
     CASHBACK = 'CASHBACK', 'Cashback'
+    INTEREST = 'INTEREST', 'Interest'
     SALE = 'SALE', 'Sale'
     INVESTMENT = 'INVESTMENT', 'Investment'
     OTHER = 'OTHER_REFILL', 'Other refill'
