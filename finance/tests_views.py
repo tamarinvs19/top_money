@@ -295,6 +295,50 @@ class TransactionExchangeRateFormTest(TestCase):
         self.assertContains(response, 'name="from_asset_rate"')
         self.assertContains(response, 'name="to_asset_rate"')
 
+    def test_transaction_form_includes_commission_input(self):
+        response = self.client.get(reverse('transaction_add'))
+        self.assertContains(response, 'name="commission_rate"')
+
+    def test_transaction_add_with_commission(self):
+        response = self.client.post(reverse('transaction_add'), {
+            'type': TransactionType.WASTE,
+            'amount': '100',
+            'currency': 'RUB',
+            'category': 'OTHER_WASTE',
+            'description': 'Test with commission',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': self.asset_usd.pk,
+            'commission_rate': '2.5',
+        })
+        transaction = Transaction.objects.get(user=self.user, amount=Decimal('100'))
+        self.assertEqual(transaction.commission_rate, Decimal('2.5'))
+
+    def test_transaction_edit_updates_commission(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('50.00'),
+            currency='RUB',
+            from_asset=self.asset_usd,
+            commission_rate=Decimal('0'),
+            date=timezone.now()
+        )
+        url = reverse('transaction_edit', args=[transaction.pk])
+        response = self.client.post(url, {
+            'type': TransactionType.WASTE,
+            'amount': '50',
+            'currency': 'RUB',
+            'category': 'OTHER_WASTE',
+            'description': 'Updated',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': self.asset_usd.pk,
+            'commission_rate': '1.5',
+        })
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.commission_rate, Decimal('1.5'))
+
 
 class AssetViewsTest(TestCase):
     def setUp(self):

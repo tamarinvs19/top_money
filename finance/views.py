@@ -128,6 +128,7 @@ def transaction_add(request, year=None, month=None, day=None):
         to_asset_id = request.POST.get('to_asset')
         from_asset_rate = Decimal(request.POST.get('from_asset_rate', '1'))
         to_asset_rate = Decimal(request.POST.get('to_asset_rate', '1'))
+        commission_rate = Decimal(request.POST.get('commission_rate', '0') or '0')
         
         Transaction.objects.create(
             user=request.user,
@@ -141,6 +142,7 @@ def transaction_add(request, year=None, month=None, day=None):
             from_asset_rate=from_asset_rate,
             to_asset_id=to_asset_id if to_asset_id else None,
             to_asset_rate=to_asset_rate,
+            commission_rate=commission_rate,
         )
         
         return redirect('transactions')
@@ -172,11 +174,13 @@ def transaction_edit(request, pk):
         to_asset_id = request.POST.get('to_asset')
         from_asset_rate = Decimal(request.POST.get('from_asset_rate', '1'))
         to_asset_rate = Decimal(request.POST.get('to_asset_rate', '1'))
+        commission_rate = Decimal(request.POST.get('commission_rate', '0') or '0')
         
         transaction.from_asset_id = from_asset_id if from_asset_id else None
         transaction.from_asset_rate = from_asset_rate
         transaction.to_asset_id = to_asset_id if to_asset_id else None
         transaction.to_asset_rate = to_asset_rate
+        transaction.commission_rate = commission_rate
         transaction.save()
         
         return redirect('transactions')
@@ -624,6 +628,7 @@ def import_transactions_csv(request, csv_file):
         
         from_asset_rate = Decimal('1')
         to_asset_rate = Decimal('1')
+        commission_rate = Decimal('0')
         
         Transaction.objects.create(
             user=request.user,
@@ -637,6 +642,7 @@ def import_transactions_csv(request, csv_file):
             from_asset_rate=from_asset_rate,
             to_asset=to_asset,
             to_asset_rate=to_asset_rate,
+            commission_rate=commission_rate,
         )
         imported_count += 1
     
@@ -709,6 +715,7 @@ def import_transactions(request):
                 
                 from_asset_rate = Decimal('1')
                 to_asset_rate = Decimal('1')
+                commission_rate = Decimal('0')
                 
                 Transaction.objects.create(
                     user=request.user,
@@ -722,6 +729,7 @@ def import_transactions(request):
                     from_asset_rate=from_asset_rate,
                     to_asset=to_asset,
                     to_asset_rate=to_asset_rate,
+                    commission_rate=commission_rate,
                 )
                 imported_count += 1
             

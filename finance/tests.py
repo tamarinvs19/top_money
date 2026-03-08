@@ -1033,3 +1033,128 @@ class SavingAccountTest(TestCase):
             date=timezone.now()
         )
         self.assertEqual(asset.balance, Decimal('10000.00'))
+
+
+class TransactionCommissionTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Sberbank Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+
+    def test_transaction_with_default_commission(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('100.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            commission_rate=Decimal('0'),
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.commission_rate, Decimal('0'))
+
+    def test_transaction_with_custom_commission(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('100.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            commission_rate=Decimal('0.02'),
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.commission_rate, Decimal('0.02'))
+
+
+class AssetBalanceWithCommissionTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Sberbank Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+
+    def test_waste_with_no_commission(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('100.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            commission_rate=Decimal('0'),
+            date=timezone.now()
+        )
+        self.assertEqual(self.asset.balance, Decimal('900.00'))
+
+    def test_waste_with_commission_deducted_additionally(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('100.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            commission_rate=Decimal('0.01'),
+            date=timezone.now()
+        )
+        self.assertEqual(self.asset.balance, Decimal('899.00'))
+
+    def test_transfer_with_commission(self):
+        asset_usd = DebitCardAsset.objects.create(
+            user=self.user,
+            name='USD Card',
+            type=AssetType.DEBIT_CARD,
+            currency='USD',
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('10000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.TRANSFER,
+            amount=Decimal('100.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            from_asset_rate=Decimal('1'),
+            to_asset=asset_usd,
+            to_asset_rate=Decimal('0.01'),
+            commission_rate=Decimal('0.01'),
+            date=timezone.now()
+        )
+        self.assertAlmostEqual(float(self.asset.balance), 9899.00, places=2)
+        self.assertAlmostEqual(float(asset_usd.balance), 10000.00, places=2)

@@ -114,7 +114,8 @@ class Asset(models.Model):
                 amount = t.amount / t.from_asset_rate
             else:
                 amount = t.amount
-            total_out += amount
+            commission = amount * t.commission_rate if t.commission_rate else Decimal('0')
+            total_out += amount + commission
 
         return total_in - total_out
 
@@ -217,6 +218,7 @@ class Transaction(models.Model):
         null=True
     )
     to_asset_rate = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('1'))
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal('0'))
     category = models.CharField(max_length=30, choices=WasteCategory.choices + RefillCategory.choices, blank=True)
     description = models.TextField(blank=True)
     date = models.DateTimeField()
