@@ -27,6 +27,7 @@
               <option value="RUB" {% if not asset or asset.currency == 'RUB' %}selected{% endif %}>₽ RUB</option>
               <option value="USD" {% if asset.currency == 'USD' %}selected{% endif %}>$ USD</option>
               <option value="EUR" {% if asset.currency == 'EUR' %}selected{% endif %}>€ EUR</option>
+              <option value="CNY" {% if asset.currency == 'CNY' %}selected{% endif %}>¥ CNY</option>
             </select>
           </div>
           <div class="mb-3">

@@ -1,13 +1,9 @@
-from inspect import stack
 import uuid
 from decimal import Decimal
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.forms.widgets import static
 from django.utils import timezone
-
-from finance.currency import CurrencyConverter
 
 
 class AssetType(models.TextChoices):
@@ -107,15 +103,17 @@ class Asset(models.Model):
         total_out = Decimal('0')
 
         for t in incoming:
-            amount = t.amount
-            if t.currency != self.currency:
-                amount = CurrencyConverter.convert(amount, t.currency, self.currency)
+            if t.to_asset and t.to_asset.currency != t.currency and t.to_asset_rate and t.to_asset_rate != 0:
+                amount = t.amount / t.to_asset_rate
+            else:
+                amount = t.amount
             total_in += amount
 
         for t in outgoing:
-            amount = t.amount
-            if t.currency != self.currency:
-                amount = CurrencyConverter.convert(amount, t.currency, self.currency)
+            if t.from_asset and t.from_asset.currency != t.currency and t.from_asset_rate and t.from_asset_rate != 0:
+                amount = t.amount / t.from_asset_rate
+            else:
+                amount = t.amount
             total_out += amount
 
         return total_in - total_out
@@ -210,6 +208,7 @@ class Transaction(models.Model):
         blank=True,
         null=True
     )
+    from_asset_rate = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('1'))
     to_asset = models.ForeignKey(
         Asset,
         on_delete=models.PROTECT,
@@ -217,6 +216,7 @@ class Transaction(models.Model):
         blank=True,
         null=True
     )
+    to_asset_rate = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('1'))
     category = models.CharField(max_length=30, choices=WasteCategory.choices + RefillCategory.choices, blank=True)
     description = models.TextField(blank=True)
     date = models.DateTimeField()

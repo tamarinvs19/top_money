@@ -9,7 +9,7 @@ from finance.models import (
     AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType,
     BankAsset, BankInvestment, SavingAccount
 )
-from finance.currency import CurrencyConverter
+from finance.exchange_rate import ExchangeRateService
 
 
 class UserModelTest(TestCase):
@@ -251,38 +251,220 @@ class TransactionModelTest(TestCase):
         self.assertEqual(self.asset.outgoing_transactions.count(), 1)
 
 
-class CurrencyConverterTest(TestCase):
-    def test_same_currency(self):
-        result = CurrencyConverter.convert(Decimal('100'), 'RUB', 'RUB')
-        self.assertEqual(result, Decimal('100'))
+class ExchangeRateServiceTest(TestCase):
+    def test_same_currency_returns_one(self):
+        result = ExchangeRateService.get_rate('RUB', 'RUB')
+        self.assertEqual(result, Decimal('1'))
 
-    def test_rub_to_usd(self):
-        result = CurrencyConverter.convert(Decimal('1000'), 'RUB', 'USD')
-        self.assertEqual(result, Decimal('11.0'))
+    def test_same_currency_with_date(self):
+        from datetime import date
+        result = ExchangeRateService.get_rate('RUB', 'RUB', date(2025, 1, 1))
+        self.assertEqual(result, Decimal('1'))
 
-    def test_usd_to_rub(self):
-        result = CurrencyConverter.convert(Decimal('100'), 'USD', 'RUB')
-        self.assertEqual(result, Decimal('9000.0'))
 
-    def test_rub_to_eur(self):
-        result = CurrencyConverter.convert(Decimal('1000'), 'RUB', 'EUR')
-        self.assertEqual(result, Decimal('10.0'))
+class TransactionExchangeRateTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.asset_rub = DebitCardAsset.objects.create(
+            user=self.user,
+            name='RUB Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+        self.asset_usd = DebitCardAsset.objects.create(
+            user=self.user,
+            name='USD Card',
+            type=AssetType.DEBIT_CARD,
+            currency='USD',
+        )
+        self.asset_eur = DebitCardAsset.objects.create(
+            user=self.user,
+            name='EUR Card',
+            type=AssetType.DEBIT_CARD,
+            currency='EUR',
+        )
 
-    def test_eur_to_rub(self):
-        result = CurrencyConverter.convert(Decimal('100'), 'EUR', 'RUB')
-        self.assertEqual(result, Decimal('10000.0'))
+    def test_transaction_with_default_rate(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset_rub,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.to_asset_rate, Decimal('1'))
 
-    def test_usd_to_eur(self):
-        result = CurrencyConverter.convert(Decimal('100'), 'USD', 'EUR')
-        self.assertEqual(result, Decimal('92.0'))
+    def test_transaction_with_custom_from_asset_rate(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('100.00'),
+            currency='USD',
+            from_asset=self.asset_usd,
+            from_asset_rate=Decimal('95.5'),
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.from_asset_rate, Decimal('95.5'))
 
-    def test_eur_to_usd(self):
-        result = CurrencyConverter.convert(Decimal('100'), 'EUR', 'USD')
-        self.assertEqual(result, Decimal('109.0'))
+    def test_transaction_with_custom_to_asset_rate(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='EUR',
+            to_asset=self.asset_eur,
+            to_asset_rate=Decimal('88.5'),
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.to_asset_rate, Decimal('88.5'))
 
-    def test_unsupported_conversion(self):
-        with self.assertRaises(ValueError):
-            CurrencyConverter.convert(Decimal('100'), 'GBP', 'RUB')
+    def test_transfer_with_different_currencies(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.TRANSFER,
+            amount=Decimal('100.00'),
+            currency='USD',
+            from_asset=self.asset_usd,
+            from_asset_rate=Decimal('90.0'),
+            to_asset=self.asset_rub,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        self.assertEqual(transaction.from_asset_rate, Decimal('90.0'))
+        self.assertEqual(transaction.to_asset_rate, Decimal('1'))
+
+
+class AssetBalanceWithExchangeRateTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.asset_rub = DebitCardAsset.objects.create(
+            user=self.user,
+            name='RUB Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+
+    def test_refill_with_same_currency_uses_rate_one(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset_rub,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        self.assertEqual(self.asset_rub.balance, Decimal('1000.00'))
+
+    def test_refill_with_custom_rate_applies_division(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('100.00'),
+            currency='USD',
+            to_asset=self.asset_rub,
+            to_asset_rate=Decimal('0.011'),
+            date=timezone.now()
+        )
+        self.assertAlmostEqual(float(self.asset_rub.balance), 9090.91, places=2)
+
+    def test_waste_with_custom_rate_applies_division(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('10000.00'),
+            currency='RUB',
+            to_asset=self.asset_rub,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('50.00'),
+            currency='USD',
+            from_asset=self.asset_rub,
+            from_asset_rate=Decimal('0.011'),
+            date=timezone.now()
+        )
+        self.assertAlmostEqual(float(self.asset_rub.balance), 5454.55, places=2)
+
+    def test_transfer_between_different_currencies(self):
+        asset_usd = DebitCardAsset.objects.create(
+            user=self.user,
+            name='USD Card',
+            type=AssetType.DEBIT_CARD,
+            currency='USD',
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('10000.00'),
+            currency='RUB',
+            to_asset=self.asset_rub,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.TRANSFER,
+            amount=Decimal('100.00'),
+            currency='RUB',
+            from_asset=self.asset_rub,
+            from_asset_rate=Decimal('1'),
+            to_asset=asset_usd,
+            to_asset_rate=Decimal('0.011'),
+            date=timezone.now()
+        )
+        self.assertAlmostEqual(float(self.asset_rub.balance), 9900.00, places=2)
+        self.assertAlmostEqual(float(asset_usd.balance), 9090.91, places=2)
+
+    def test_transfer_rub_to_yuan_with_exchange_rate(self):
+        asset_cny = DebitCardAsset.objects.create(
+            user=self.user,
+            name='CNY Card',
+            type=AssetType.DEBIT_CARD,
+            currency='CNY',
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('1200.00'),
+            currency='RUB',
+            to_asset=self.asset_rub,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('100.00'),
+            currency='CNY',
+            to_asset=asset_cny,
+            to_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.TRANSFER,
+            amount=Decimal('1200.00'),
+            currency='RUB',
+            from_asset=self.asset_rub,
+            from_asset_rate=Decimal('12'),
+            to_asset=asset_cny,
+            to_asset_rate=Decimal('12'),
+            date=timezone.now()
+        )
+        self.assertAlmostEqual(float(self.asset_rub.balance), 0.00, places=2)
+        self.assertAlmostEqual(float(asset_cny.balance), 200.00, places=2)
 
 
 class AssetBalanceCalculationTest(TestCase):

@@ -39,7 +39,7 @@
           <strong class="{% if asset.balance >= 0 %}text-dark{% else %}text-danger{% endif %}">
             {{ asset.balance|floatformat:2 }}
           </strong>
-          <small class="text-muted">{% if asset.currency == 'RUB' %}₽{% elif asset.currency == 'USD' %}${% elif asset.currency == 'EUR' %}€{% else %}{{ asset.currency }}{% endif %}</small>
+          <small class="text-muted">{% if asset.currency == 'RUB' %}₽{% elif asset.currency == 'USD' %}${% elif asset.currency == 'EUR' %}€{% elif asset.currency == 'CNY' %}¥{% else %}{{ asset.currency }}{% endif %}</small>
         </div>
       </a>
     </div>

@@ -65,7 +65,7 @@
       </div>
       <div class="text-end">
         <strong class="{% if t.type == 'REFILL' or t.type == 'CHANGING_BALANCE' and t.to_asset %}text-success{% elif t.type == 'WASTE' or t.type == 'CHANGING_BALANCE' and t.from_asset %}text-danger{% endif %}">{{ t.amount|floatformat:2 }}</strong>
-        <small>{% if t.currency == 'RUB' %}₽{% elif t.currency == 'USD' %}${% elif t.currency == 'EUR' %}€{% else %}{{ t.currency }}{% endif %}</small>
+        <small>{% if t.currency == 'RUB' %}₽{% elif t.currency == 'USD' %}${% elif t.currency == 'EUR' %}€{% elif t.currency == 'CNY' %}¥{% else %}{{ t.currency }}{% endif %}</small>
       </div>
     </a>
   </div>

@@ -23,6 +23,7 @@ def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
             amount=balance_amount,
             currency=currency,
             to_asset=asset,
+            to_asset_rate=Decimal('1'),
             date=timezone.now()
         )
     return asset
@@ -192,6 +193,107 @@ class TransactionViewsTest(TestCase):
         url = reverse('transaction_edit', args=[transaction.pk])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
+
+
+class TransactionExchangeRateFormTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+        self.asset_usd = DebitCardAsset.objects.create(
+            user=self.user,
+            name='USD Card',
+            type=AssetType.DEBIT_CARD,
+            currency='USD',
+        )
+
+    def test_transaction_add_with_custom_from_asset_rate(self):
+        response = self.client.post(reverse('transaction_add'), {
+            'type': TransactionType.WASTE,
+            'amount': '100',
+            'currency': 'USD',
+            'category': 'OTHER_WASTE',
+            'description': 'Test with rate',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': self.asset_usd.pk,
+            'from_asset_rate': '95.5',
+        })
+        transaction = Transaction.objects.get(user=self.user, amount=Decimal('100'))
+        self.assertEqual(transaction.from_asset_rate, Decimal('95.5'))
+
+    def test_transaction_add_with_custom_to_asset_rate(self):
+        response = self.client.post(reverse('transaction_add'), {
+            'type': TransactionType.REFILL,
+            'amount': '1000',
+            'currency': 'EUR',
+            'category': 'SALARY',
+            'description': 'Test refill with rate',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'to_asset': self.asset_usd.pk,
+            'to_asset_rate': '0.92',
+        })
+        transaction = Transaction.objects.get(user=self.user, amount=Decimal('1000'))
+        self.assertEqual(transaction.to_asset_rate, Decimal('0.92'))
+
+    def test_transaction_add_transfer_with_both_rates(self):
+        asset_rub = DebitCardAsset.objects.create(
+            user=self.user,
+            name='RUB Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+        response = self.client.post(reverse('transaction_add'), {
+            'type': TransactionType.TRANSFER,
+            'amount': '1000',
+            'currency': 'RUB',
+            'description': 'Transfer with rates',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': asset_rub.pk,
+            'from_asset_rate': '1',
+            'to_asset': self.asset_usd.pk,
+            'to_asset_rate': '0.011',
+        })
+        transaction = Transaction.objects.get(user=self.user, amount=Decimal('1000'))
+        self.assertEqual(transaction.from_asset_rate, Decimal('1'))
+        self.assertEqual(transaction.to_asset_rate, Decimal('0.011'))
+
+    def test_transaction_edit_updates_rates(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('50.00'),
+            currency='USD',
+            from_asset=self.asset_usd,
+            from_asset_rate=Decimal('1'),
+            date=timezone.now()
+        )
+        url = reverse('transaction_edit', args=[transaction.pk])
+        response = self.client.post(url, {
+            'type': TransactionType.WASTE,
+            'amount': '50',
+            'currency': 'USD',
+            'category': 'OTHER_WASTE',
+            'description': 'Updated',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': self.asset_usd.pk,
+            'from_asset_rate': '92.5',
+        })
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.from_asset_rate, Decimal('92.5'))
+
+    def test_transaction_form_displays_currency_in_asset_options(self):
+        response = self.client.get(reverse('transaction_add'))
+        self.assertContains(response, 'USD Card')
+        self.assertContains(response, '(USD)')
+
+    def test_transaction_form_includes_rate_input(self):
+        response = self.client.get(reverse('transaction_add'))
+        self.assertContains(response, 'name="from_asset_rate"')
+        self.assertContains(response, 'name="to_asset_rate"')
 
 
 class AssetViewsTest(TestCase):

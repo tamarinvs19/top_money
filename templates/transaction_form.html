@@ -27,10 +27,11 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Currency</label>
-            <select name="currency" class="form-select">
+            <select name="currency" class="form-select" id="currencySelect" onchange="onCurrencyChange()">
               <option value="RUB" {% if not transaction or transaction.currency == 'RUB' %}selected{% endif %}>₽ RUB</option>
               <option value="USD" {% if transaction.currency == 'USD' %}selected{% endif %}>$ USD</option>
               <option value="EUR" {% if transaction.currency == 'EUR' %}selected{% endif %}>€ EUR</option>
+              <option value="CNY" {% if transaction.currency == 'CNY' %}selected{% endif %}>¥ CNY</option>
             </select>
           </div>
           <div class="mb-3">
@@ -64,21 +65,27 @@
           </div>
           <div class="mb-3" id="fromAssetGroup">
             <label class="form-label">From Asset</label>
-            <select name="from_asset" class="form-select">
-              <option value="">-- Select --</option>
-              {% for asset in assets %}
-              <option value="{{ asset.pk }}" {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset }}</option>
-              {% endfor %}
-            </select>
+            <div class="d-flex gap-2">
+              <select name="from_asset" class="form-select" id="fromAssetSelect" onchange="updateRate('from')">
+                <option value="">-- Select --</option>
+                {% for asset in assets %}
+                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
+                {% endfor %}
+              </select>
+              <input type="number" step="0.000001" name="from_asset_rate" class="form-control" style="width: 120px;" id="fromAssetRate" value="{% if transaction.from_asset_rate %}{{ transaction.from_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
+            </div>
           </div>
           <div class="mb-3" id="toAssetGroup">
             <label class="form-label">To Asset</label>
-            <select name="to_asset" class="form-select">
-              <option value="">-- Select --</option>
-              {% for asset in assets %}
-              <option value="{{ asset.pk }}" {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset }}</option>
-              {% endfor %}
-            </select>
+            <div class="d-flex gap-2">
+              <select name="to_asset" class="form-select" id="toAssetSelect" onchange="updateRate('to')">
+                <option value="">-- Select --</option>
+                {% for asset in assets %}
+                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
+                {% endfor %}
+              </select>
+              <input type="number" step="0.000001" name="to_asset_rate" class="form-control" style="width: 120px;" id="toAssetRate" value="{% if transaction.to_asset_rate %}{{ transaction.to_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
+            </div>
           </div>
           <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex gap-2">
@@ -106,6 +113,66 @@
 </div>
 
 <script>
+  const transactionCurrency = "{{ transaction.currency|default:'RUB' }}";
+  const transactionDate = "{{ transaction.date|date:'Y-m-d'|default:initial_date }}";
+
+  async function fetchRate(fromCurrency, toCurrency, dateStr) {
+    if (fromCurrency === toCurrency) {
+      return 1;
+    }
+    try {
+      const response = await fetch(`/api/exchange-rate/?from=${fromCurrency}&to=${toCurrency}&date=${dateStr}`);
+      if (response.ok) {
+        const data = await response.json();
+        return parseFloat(data.rate);
+      }
+    } catch (e) {
+      console.log('Failed to fetch rate:', e);
+    }
+    return 1;
+  }
+
+  async function updateRate(direction) {
+    const currencySelect = document.getElementById(direction + "AssetSelect");
+    const rateInput = document.getElementById(direction + "AssetRate");
+    const selectedOption = currencySelect.options[currencySelect.selectedIndex];
+    const assetCurrency = selectedOption.getAttribute("data-currency");
+
+    if (!assetCurrency || !transactionCurrency) {
+      rateInput.value = 1;
+      return;
+    }
+
+    if (assetCurrency === transactionCurrency) {
+      rateInput.value = 1;
+      return;
+    }
+
+    const rate = await fetchRate(transactionCurrency, assetCurrency, transactionDate);
+    rateInput.value = rate;
+  }
+
+  function onCurrencyChange() {
+    transactionCurrency = document.getElementById("currencySelect").value;
+    const dateInput = document.querySelector('input[name="date"]');
+    if (dateInput) {
+      transactionDate = dateInput.value;
+    }
+
+    Promise.all([
+      updateRate("from"),
+      updateRate("to")
+    ]);
+  }
+
+  document.querySelector('input[name="date"]')?.addEventListener("change", function() {
+    transactionDate = this.value;
+    Promise.all([
+      updateRate("from"),
+      updateRate("to")
+    ]);
+  });
+
   function toggleFields() {
     const type = document.getElementById("typeSelect").value;
     const fromGroup = document.getElementById("fromAssetGroup");

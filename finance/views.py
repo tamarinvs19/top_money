@@ -8,12 +8,11 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db import models
+from django.http import JsonResponse, HttpResponse
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
 from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount
-
-
-from django.http import HttpResponse
+from finance.exchange_rate import ExchangeRateService
 
 
 def signup(request):
@@ -127,6 +126,8 @@ def transaction_add(request, year=None, month=None, day=None):
         
         from_asset_id = request.POST.get('from_asset')
         to_asset_id = request.POST.get('to_asset')
+        from_asset_rate = Decimal(request.POST.get('from_asset_rate', '1'))
+        to_asset_rate = Decimal(request.POST.get('to_asset_rate', '1'))
         
         Transaction.objects.create(
             user=request.user,
@@ -137,7 +138,9 @@ def transaction_add(request, year=None, month=None, day=None):
             description=description,
             date=date,
             from_asset_id=from_asset_id if from_asset_id else None,
+            from_asset_rate=from_asset_rate,
             to_asset_id=to_asset_id if to_asset_id else None,
+            to_asset_rate=to_asset_rate,
         )
         
         return redirect('transactions')
@@ -167,9 +170,13 @@ def transaction_edit(request, pk):
         
         from_asset_id = request.POST.get('from_asset')
         to_asset_id = request.POST.get('to_asset')
+        from_asset_rate = Decimal(request.POST.get('from_asset_rate', '1'))
+        to_asset_rate = Decimal(request.POST.get('to_asset_rate', '1'))
         
         transaction.from_asset_id = from_asset_id if from_asset_id else None
+        transaction.from_asset_rate = from_asset_rate
         transaction.to_asset_id = to_asset_id if to_asset_id else None
+        transaction.to_asset_rate = to_asset_rate
         transaction.save()
         
         return redirect('transactions')
@@ -290,6 +297,7 @@ def asset_add(request):
                 amount=balance,
                 currency=currency,
                 to_asset=asset,
+                to_asset_rate=Decimal('1'),
                 description='Initial balance',
                 date=timezone.now()
             )
@@ -361,6 +369,7 @@ def asset_edit(request, pk):
                     amount=abs(balance_diff),
                     currency=asset.currency,
                     to_asset=asset,
+                    to_asset_rate=Decimal('1'),
                     description='Balance correction',
                     date=timezone.now()
                 )
@@ -371,6 +380,7 @@ def asset_edit(request, pk):
                     amount=abs(balance_diff),
                     currency=asset.currency,
                     from_asset=asset,
+                    from_asset_rate=Decimal('1'),
                     description='Balance correction',
                     date=timezone.now()
                 )
@@ -612,6 +622,9 @@ def import_transactions_csv(request, csv_file):
         from_asset = assets.get(from_asset_name) if from_asset_name else None
         to_asset = assets.get(to_asset_name) if to_asset_name else None
         
+        from_asset_rate = Decimal('1')
+        to_asset_rate = Decimal('1')
+        
         Transaction.objects.create(
             user=request.user,
             type=t_type,
@@ -621,7 +634,9 @@ def import_transactions_csv(request, csv_file):
             description=description,
             date=t_date,
             from_asset=from_asset,
+            from_asset_rate=from_asset_rate,
             to_asset=to_asset,
+            to_asset_rate=to_asset_rate,
         )
         imported_count += 1
     
@@ -692,6 +707,9 @@ def import_transactions(request):
                 from_asset = assets.get(from_asset_name) if from_asset_name else None
                 to_asset = assets.get(to_asset_name) if to_asset_name else None
                 
+                from_asset_rate = Decimal('1')
+                to_asset_rate = Decimal('1')
+                
                 Transaction.objects.create(
                     user=request.user,
                     type=t_type,
@@ -701,7 +719,9 @@ def import_transactions(request):
                     description=description,
                     date=t_date,
                     from_asset=from_asset,
+                    from_asset_rate=from_asset_rate,
                     to_asset=to_asset,
+                    to_asset_rate=to_asset_rate,
                 )
                 imported_count += 1
             
@@ -725,3 +745,19 @@ def transaction_delete(request, pk):
         transaction.delete()
         return redirect('transactions')
     return HttpResponse(f"Delete transaction: {transaction.id}")
+
+
+def api_exchange_rate(request):
+    from_currency = request.GET.get('from', 'RUB')
+    to_currency = request.GET.get('to', 'RUB')
+    date_str = request.GET.get('date')
+
+    at_date = None
+    if date_str:
+        try:
+            at_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    rate = ExchangeRateService.get_rate(from_currency, to_currency, at_date)
+    return JsonResponse({'rate': str(rate)})

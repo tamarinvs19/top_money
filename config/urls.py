@@ -33,4 +33,6 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('profile/export/', views.export_transactions, name='export_transactions'),
     path('profile/import/', views.import_transactions, name='import_transactions'),
+    
+    path('api/exchange-rate/', views.api_exchange_rate, name='api_exchange_rate'),
 ]
