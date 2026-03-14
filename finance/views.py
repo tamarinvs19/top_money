@@ -546,7 +546,7 @@ def export_transactions(request):
     ws = wb.active
     ws.title = "Transactions"
 
-    headers = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'Description']
+    headers = ['Date', 'Type', 'Category', 'Amount', 'Currency', 'From Asset', 'To Asset', 'From Asset Rate', 'To Asset Rate', 'Commission Rate', 'Description']
     for col, header in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=header)
         cell.font = Font(bold=True)
@@ -559,7 +559,10 @@ def export_transactions(request):
         ws.cell(row=row, column=5, value=t.currency)
         ws.cell(row=row, column=6, value=f'{t.from_asset.type}: {t.from_asset.name}' if t.from_asset else '')
         ws.cell(row=row, column=7, value=f'{t.to_asset.type}: {t.to_asset.name}' if t.to_asset else '')
-        ws.cell(row=row, column=8, value=t.description or '')
+        ws.cell(row=row, column=8, value=float(t.from_asset_rate) if t.from_asset_rate else 1.0)
+        ws.cell(row=row, column=9, value=float(t.to_asset_rate) if t.to_asset_rate else 1.0)
+        ws.cell(row=row, column=10, value=float(t.commission_rate) if t.commission_rate else 0.0)
+        ws.cell(row=row, column=11, value=t.description or '')
 
     for col in ws.columns:
         max_length = 0
@@ -595,6 +598,9 @@ def import_transactions_csv(request, csv_file):
     currency_idx = headers.index('Currency') if 'Currency' in headers else 4
     from_asset_idx = headers.index('From Asset') if 'From Asset' in headers else 5
     to_asset_idx = headers.index('To Asset') if 'To Asset' in headers else 6
+    from_asset_rate_idx = headers.index('From Asset Rate') if 'From Asset Rate' in headers else -1
+    to_asset_rate_idx = headers.index('To Asset Rate') if 'To Asset Rate' in headers else -1
+    commission_rate_idx = headers.index('Commission Rate') if 'Commission Rate' in headers else -1
     description_idx = headers.index('Description') if 'Description' in headers else 7
     
     imported_count = 0
@@ -626,9 +632,20 @@ def import_transactions_csv(request, csv_file):
         from_asset = assets.get(from_asset_name) if from_asset_name else None
         to_asset = assets.get(to_asset_name) if to_asset_name else None
         
-        from_asset_rate = Decimal('1')
-        to_asset_rate = Decimal('1')
-        commission_rate = Decimal('0')
+        if from_asset_rate_idx >= 0 and from_asset_rate_idx < len(row) and row[from_asset_rate_idx]:
+            from_asset_rate = Decimal(str(row[from_asset_rate_idx]))
+        else:
+            from_asset_rate = Decimal('1')
+        
+        if to_asset_rate_idx >= 0 and to_asset_rate_idx < len(row) and row[to_asset_rate_idx]:
+            to_asset_rate = Decimal(str(row[to_asset_rate_idx]))
+        else:
+            to_asset_rate = Decimal('1')
+        
+        if commission_rate_idx >= 0 and commission_rate_idx < len(row) and row[commission_rate_idx]:
+            commission_rate = Decimal(str(row[commission_rate_idx]))
+        else:
+            commission_rate = Decimal('0')
         
         Transaction.objects.create(
             user=request.user,
@@ -680,6 +697,9 @@ def import_transactions(request):
             currency_idx = headers.index('Currency') if 'Currency' in headers else 4
             from_asset_idx = headers.index('From Asset') if 'From Asset' in headers else 5
             to_asset_idx = headers.index('To Asset') if 'To Asset' in headers else 6
+            from_asset_rate_idx = headers.index('From Asset Rate') if 'From Asset Rate' in headers else -1
+            to_asset_rate_idx = headers.index('To Asset Rate') if 'To Asset Rate' in headers else -1
+            commission_rate_idx = headers.index('Commission Rate') if 'Commission Rate' in headers else -1
             description_idx = headers.index('Description') if 'Description' in headers else 7
             
             assets = {f"{a.type}: {a.name}": a for a in Asset.objects.filter(user=request.user)}
@@ -713,9 +733,20 @@ def import_transactions(request):
                 from_asset = assets.get(from_asset_name) if from_asset_name else None
                 to_asset = assets.get(to_asset_name) if to_asset_name else None
                 
-                from_asset_rate = Decimal('1')
-                to_asset_rate = Decimal('1')
-                commission_rate = Decimal('0')
+                if from_asset_rate_idx >= 0 and from_asset_rate_idx < len(row) and row[from_asset_rate_idx]:
+                    from_asset_rate = Decimal(str(row[from_asset_rate_idx]))
+                else:
+                    from_asset_rate = Decimal('1')
+                
+                if to_asset_rate_idx >= 0 and to_asset_rate_idx < len(row) and row[to_asset_rate_idx]:
+                    to_asset_rate = Decimal(str(row[to_asset_rate_idx]))
+                else:
+                    to_asset_rate = Decimal('1')
+                
+                if commission_rate_idx >= 0 and commission_rate_idx < len(row) and row[commission_rate_idx]:
+                    commission_rate = Decimal(str(row[commission_rate_idx]))
+                else:
+                    commission_rate = Decimal('0')
                 
                 Transaction.objects.create(
                     user=request.user,

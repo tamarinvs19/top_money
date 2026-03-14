@@ -8,16 +8,19 @@ Transaction data can be imported from Excel (.xlsx) or CSV (.csv) files, and exp
 
 ## Column Format
 
-| Column       | Required | Format                      | Description                              |
-| ------------ | :------: | --------------------------- | ---------------------------------------- |
-| Date         | Yes      | `YYYY-MM-DD HH:MM`         | Transaction date and time                |
-| Type         | Yes      | Text                        | Refill, Waste, or Transfer               |
-| Category     | No       | Text                        | Transaction category                     |
-| Amount       | Yes      | Decimal                     | Transaction amount                       |
-| Currency     | No       | Text (default: RUB)         | ISO currency code (RUB, USD, EUR, etc.) |
-| From Asset   | No       | Text                        | Source asset name (e.g., "DEBIT_CARD: Sberbank") |
-| To Asset     | No       | Text                        | Destination asset name                   |
-| Description  | No       | Text                        | Optional description                     |
+| Column            | Required | Format                      | Description                              |
+| ----------------- | :------: | --------------------------- | ---------------------------------------- |
+| Date              | Yes      | `YYYY-MM-DD HH:MM`         | Transaction date and time                |
+| Type              | Yes      | Text                        | Refill, Waste, or Transfer               |
+| Category          | No       | Text                        | Transaction category                     |
+| Amount            | Yes      | Decimal                     | Transaction amount                       |
+| Currency          | No       | Text (default: RUB)         | ISO currency code (RUB, USD, EUR, etc.) |
+| From Asset        | No       | Text                        | Source asset name (e.g., "DEBIT_CARD: Sberbank") |
+| To Asset          | No       | Text                        | Destination asset name                   |
+| From Asset Rate   | No       | Decimal (default: 1)       | Exchange rate for source currency        |
+| To Asset Rate     | No       | Decimal (default: 1)       | Exchange rate for destination currency   |
+| Commission Rate   | No       | Decimal (default: 0)       | Commission fee as decimal (e.g., 0.02 = 2%) |
+| Description       | No       | Text                        | Optional description                     |
 
 ---
 
