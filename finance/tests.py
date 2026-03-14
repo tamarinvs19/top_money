@@ -545,10 +545,11 @@ class AssetBalanceCalculationTest(TestCase):
             amount=Decimal('1000.00'),
             currency='USD',
             to_asset=self.asset,
+            to_asset_rate=Decimal('0.01'),
             date=timezone.now()
         )
         calculated = self.asset.calculate_balance()
-        self.assertEqual(calculated, Decimal('100000.00'))
+        self.assertEqual(calculated, Decimal('110000.00'))
 
     def test_balance_empty_asset(self):
         calculated = self.asset.calculate_balance()

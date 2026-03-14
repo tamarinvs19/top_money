@@ -792,7 +792,7 @@ class StatisticsViewsTest(TestCase):
         response = self.client.get(reverse('statistics'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Month</a>')
-        self.assertContains(response, '2/2026')
+        self.assertContains(response, f'{self.current_month}/{self.current_year}')
     
     def test_statistics_period_year(self):
         url = reverse('statistics_year_type', args=[self.current_year, 'outcome'])
