@@ -119,6 +119,13 @@
             </div>
           </div>
 
+          <div id="eWalletFields" class="asset-fields" style="display: none;">
+            <div class="mb-3">
+              <label class="form-label">Provider Name</label>
+              <input type="text" name="provider_name" class="form-control" value="{{ asset.provider_name|default:'' }}" />
+            </div>
+          </div>
+
           {% if asset %}
           <div class="mb-3 form-check">
             <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {% if asset.is_active %}checked{% endif %} />
@@ -163,6 +170,7 @@ function toggleFields() {
   document.getElementById('depositFields').style.display = 'none';
   document.getElementById('savingAccountFields').style.display = 'none';
   document.getElementById('brokerageFields').style.display = 'none';
+  document.getElementById('eWalletFields').style.display = 'none';
   
   if (type === 'CASH') {
     document.getElementById('cashFields').style.display = 'block';
@@ -184,6 +192,8 @@ function toggleFields() {
     document.getElementById('savingAccountFields').style.display = 'block';
   } else if (type === 'BROKERAGE') {
     document.getElementById('brokerageFields').style.display = 'block';
+  } else if (type === 'E_WALLET') {
+    document.getElementById('eWalletFields').style.display = 'block';
   }
 }
 

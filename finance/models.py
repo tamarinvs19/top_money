@@ -12,6 +12,7 @@ class AssetType(models.TextChoices):
     CREDIT_CARD = 'CREDIT_CARD', 'Credit Card'
     DEPOSIT = 'DEPOSIT', 'Deposit'
     SAVING_ACCOUNT = 'SAVING_ACCOUNT', 'Saving Account'
+    E_WALLET = 'E_WALLET', 'E-Wallet'
     BROKERAGE = 'BROKERAGE', 'Brokerage Account'
 
 
@@ -194,6 +195,14 @@ class BrokerageAsset(Asset):
     class Meta:
         verbose_name = 'Brokerage Account'
         verbose_name_plural = 'Brokerage Accounts'
+
+
+class EWalletAsset(Asset):
+    provider_name = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        verbose_name = 'E-Wallet'
+        verbose_name_plural = 'E-Wallets'
 
 
 class Transaction(models.Model):

@@ -50,6 +50,7 @@ Represents any financial account or container for money.
 | DEBIT_CARD   | Debit card (bank account)             |
 | DEPOSIT      | Bank deposit account                  |
 | CREDIT_CARD  | Credit card (negative balance = debt) |
+| E_WALLET     | Electronic wallet (e.g., Qiwi, Yandex Money) |
 | BROKERAGE    | Investment/brokerage account          |
 | SAVING_ACCOUNT | Savings account with interest       |
 
@@ -149,7 +150,19 @@ Credit card with spending limit and grace period. Inherits from CardAsset (which
 
 ---
 
-#### 5. BROKERAGE (Brokerage Account)
+#### 5. E_WALLET (E-Wallet)
+
+Electronic wallet for online payments (e.g., Qiwi, Yandex Money, Webmoney).
+
+| Field         | Type      | Description                           |
+| ------------- | --------- | ------------------------------------- |
+| provider_name | Char(100) | Wallet provider name (e.g., "Qiwi")   |
+
+**Example:** "Yandex Money", "Qiwi Wallet", "Webmoney"
+
+---
+
+#### 6. BROKERAGE (Brokerage Account)
 
 Investment account for stocks, bonds, funds.
 
@@ -163,7 +176,7 @@ Investment account for stocks, bonds, funds.
 
 ---
 
-#### 6. SAVING_ACCOUNT (Saving Account)
+#### 7. SAVING_ACCOUNT (Saving Account)
 
 Bank savings account with interest accrual. Inherits from BankInvestment (which inherits from BankAsset).
 
@@ -178,25 +191,26 @@ Bank savings account with interest accrual. Inherits from BankInvestment (which 
 
 ### Assets Fields Summary Table
 
-| Field / Type   | CASH | CardAsset | DEBIT_CARD | DEPOSIT | CREDIT_CARD | BROKERAGE | SAVING_ACCOUNT |
-| -------------- | :--: | :-------: | :--------: | :-----: | :----------: | :-------: | :-------------: |
-| name           |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
-| currency       |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
-| balance        |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
-| is_active      |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |     ✓     |        ✓        |
-| location       |  ✓   |     -     |     -      |    -    |      -       |     -     |        -        |
-| bank_name      |  -   |     ✓     |     ✓      |    ✓    |      ✓       |     -     |        -        |
-| last_4_digits  |  -   |     ✓     |     ✓      |    -    |      ✓       |     -     |        -        |
-| interest_rate  |  -   |     -     |     -      |    ✓    |      -       |     -     |        ✓        |
-| term_months    |  -   |     -     |     -      |    ✓    |      -       |     -     |        -        |
-| renewal_date   |  -   |     -     |     -      |    ✓    |      -       |     -     |        -        |
-| is_capitalized |  -   |     -     |     -      |    ✓    |      -       |     -     |        -        |
-| credit_limit   |  -   |     -     |     -      |    -    |      ✓       |     -     |        -        |
-| grace_period   |  -   |     -     |     -      |    -    |      ✓       |     -     |        -        |
-| billing_day    |  -   |     -     |     -      |    -    |      ✓       |     -     |        -        |
-| broker_name    |  -   |     -     |     -      |    -    |      -       |     ✓     |        -        |
-| account_number |  -   |     -     |     -      |    -    |      -       |     ✓     |        -        |
-| brokerage_account_type |  -   |     -     |     -      |    -    |      -       |     ✓     |        -        |
+| Field / Type   | CASH | CardAsset | DEBIT_CARD | DEPOSIT | CREDIT_CARD | E_WALLET | BROKERAGE | SAVING_ACCOUNT |
+| -------------- | :--: | :-------: | :--------: | :-----: | :----------: | :------: | :-------: | :-------------: |
+| name           |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |    ✓     |     ✓     |        ✓        |
+| currency       |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |    ✓     |     ✓     |        ✓        |
+| balance        |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |    ✓     |     ✓     |        ✓        |
+| is_active      |  ✓   |     ✓     |     ✓      |    ✓    |      ✓       |    ✓     |     ✓     |        ✓        |
+| location       |  ✓   |     -     |     -      |    -    |      -       |    -     |     -     |        -        |
+| bank_name      |  -   |     ✓     |     ✓      |    ✓    |      ✓       |    -     |     -     |        -        |
+| last_4_digits  |  -   |     ✓     |     ✓      |    -    |      ✓       |    -     |     -     |        -        |
+| interest_rate  |  -   |     -     |     -      |    ✓    |      -       |    -     |     -     |        ✓        |
+| term_months    |  -   |     -     |     -      |    ✓    |      -       |    -     |     -     |        -        |
+| renewal_date   |  -   |     -     |     -      |    ✓    |      -       |    -     |     -     |        -        |
+| is_capitalized |  -   |     -     |     -      |    ✓    |      -       |    -     |     -     |        -        |
+| credit_limit   |  -   |     -     |     -      |    -    |      ✓       |    -     |     -     |        -        |
+| grace_period   |  -   |     -     |     -      |    -    |      ✓       |    -     |     -     |        -        |
+| billing_day    |  -   |     -     |     -      |    -    |      ✓       |    -     |     -     |        -        |
+| provider_name  |  -   |     -     |     -      |    -    |      -       |    ✓     |     -     |        -        |
+| broker_name    |  -   |     -     |     -      |    -    |      -       |    -     |     ✓     |        -        |
+| account_number |  -   |     -     |     -      |    -    |      -       |    -     |     ✓     |        -        |
+| brokerage_account_type |  -   |     -     |     -      |    -    |      -       |    -     |     ✓     |        -        |
 
 ---
 
@@ -205,6 +219,7 @@ Bank savings account with interest accrual. Inherits from BankInvestment (which 
 ```
 Asset (abstract base)
 ├── CashAsset
+├── EWalletAsset
 ├── BankAsset (abstract)
 │   ├── CardAsset (abstract)
 │   │   ├── DebitCardAsset

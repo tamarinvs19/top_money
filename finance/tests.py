@@ -1,11 +1,13 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.utils.timezone import make_aware
 from decimal import Decimal
+from datetime import datetime
 
 from finance.models import (
     Asset, CashAsset, DebitCardAsset, DepositAsset, 
-    CreditCardAsset, BrokerageAsset, Transaction, 
+    CreditCardAsset, BrokerageAsset, EWalletAsset, Transaction, 
     AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType,
     BankAsset, BankInvestment, SavingAccount
 )
@@ -913,8 +915,6 @@ class TransactionDateTimeTest(TestCase):
         self.assertEqual(transaction.date.minute, 30)
 
     def test_transaction_datetime_with_different_minutes(self):
-        from datetime import datetime
-        from django.utils.timezone import make_aware
         
         minutes = [0, 15, 30, 45, 59]
         
@@ -1034,6 +1034,99 @@ class SavingAccountTest(TestCase):
             date=timezone.now()
         )
         self.assertEqual(asset.balance, Decimal('10000.00'))
+
+
+class EWalletAssetTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+
+    def test_create_e_wallet_asset(self):
+        asset = EWalletAsset.objects.create(
+            user=self.user,
+            name='Yandex Money',
+            type=AssetType.E_WALLET,
+            currency='RUB',
+            provider_name='Yandex'
+        )
+        self.assertEqual(asset.name, 'Yandex Money')
+        self.assertEqual(asset.type, AssetType.E_WALLET)
+        self.assertEqual(asset.provider_name, 'Yandex')
+        self.assertTrue(asset.is_active)
+        self.assertEqual(asset.balance, Decimal('0'))
+
+    def test_e_wallet_inherits_from_asset(self):
+        asset = EWalletAsset.objects.create(
+            user=self.user,
+            name='Qiwi Wallet',
+            type=AssetType.E_WALLET,
+        )
+        self.assertIsInstance(asset, Asset)
+
+    def test_e_wallet_with_initial_balance(self):
+        asset = EWalletAsset.objects.create(
+            user=self.user,
+            name='Webmoney',
+            type=AssetType.E_WALLET,
+            currency='RUB',
+            provider_name='Webmoney'
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.CHANGING_BALANCE,
+            amount=Decimal('10000.00'),
+            currency='RUB',
+            to_asset=asset,
+            date=timezone.now()
+        )
+        self.assertEqual(asset.balance, Decimal('10000.00'))
+
+    def test_e_wallet_str_representation(self):
+        asset = EWalletAsset.objects.create(
+            user=self.user,
+            name='Test Wallet',
+            type=AssetType.E_WALLET,
+        )
+        self.assertEqual(str(asset), 'E-Wallet: Test Wallet')
+
+    def test_e_wallet_transactions(self):
+        asset = EWalletAsset.objects.create(
+            user=self.user,
+            name='Test Wallet',
+            type=AssetType.E_WALLET,
+            currency='RUB'
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            to_asset=asset,
+            date=timezone.now()
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('2000.00'),
+            currency='RUB',
+            from_asset=asset,
+            date=timezone.now()
+        )
+        self.assertEqual(asset.incoming_transactions.count(), 1)
+        self.assertEqual(asset.outgoing_transactions.count(), 1)
+        self.assertEqual(asset.balance, Decimal('3000.00'))
+
+    def test_user_e_wallet_relation(self):
+        EWalletAsset.objects.create(
+            user=self.user,
+            name='Wallet 1',
+            type=AssetType.E_WALLET,
+        )
+        EWalletAsset.objects.create(
+            user=self.user,
+            name='Wallet 2',
+            type=AssetType.E_WALLET,
+        )
+        self.assertEqual(EWalletAsset.objects.filter(user=self.user).count(), 2)
 
 
 class TransactionCommissionTest(TestCase):
