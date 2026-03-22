@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount
+from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset
 
 
 def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
@@ -368,13 +368,28 @@ class AssetViewsTest(TestCase):
         self.assertContains(response, '3000')  # total for DEBIT_CARD
         self.assertContains(response, '500')   # total for CASH
     
-    def test_assets_total_balance(self):
+    def test_assets_list_grouped_by_type_and_currency(self):
+        create_asset_with_balance(self.user, 'Card RUB', AssetType.DEBIT_CARD, 'RUB', Decimal('1000'))
+        create_asset_with_balance(self.user, 'Card USD', AssetType.DEBIT_CARD, 'USD', Decimal('50'))
+        
+        response = self.client.get(reverse('assets'))
+        self.assertContains(response, 'Debit Card')
+        self.assertContains(response, 'RUB')
+        self.assertContains(response, 'USD')
+        self.assertContains(response, '1000')
+        self.assertContains(response, '50')
+    
+    def test_assets_total_balance_per_currency(self):
         create_asset_with_balance(self.user, 'Card1', AssetType.DEBIT_CARD, 'RUB', Decimal('1000'))
         create_asset_with_balance(self.user, 'Cash', AssetType.CASH, 'RUB', Decimal('500'))
+        create_asset_with_balance(self.user, 'Card USD', AssetType.DEBIT_CARD, 'USD', Decimal('100'))
         
         response = self.client.get(reverse('assets'))
         self.assertContains(response, 'Total Balance')
-        self.assertContains(response, '1500')
+        self.assertContains(response, 'RUB')
+        self.assertContains(response, 'USD')
+        self.assertContains(response, '1500')  # total RUB
+        self.assertContains(response, '100')   # total USD
     
     def test_asset_add_get(self):
         response = self.client.get(reverse('asset_add'))
@@ -1232,3 +1247,76 @@ class SavingAccountViewsTest(TestCase):
         response = self.client.get(url)
         self.assertContains(response, 'interest_rate')
         self.assertContains(response, '3')
+
+
+class EWalletFormFieldsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+
+    def test_e_wallet_form_shows_provider_name_field(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'id="eWalletFields"')
+        self.assertContains(response, 'Provider Name')
+
+    def test_e_wallet_type_in_asset_types(self):
+        response = self.client.get(reverse('asset_add'))
+        self.assertContains(response, 'E_WALLET')
+        self.assertContains(response, 'E-Wallet')
+
+
+class EWalletViewsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+
+    def test_create_e_wallet(self):
+        response = self.client.post(reverse('asset_add'), {
+            'name': 'Yandex Money',
+            'type': AssetType.E_WALLET,
+            'currency': 'RUB',
+            'balance': '10000',
+            'provider_name': 'Yandex'
+        })
+        self.assertRedirects(response, reverse('assets'))
+        asset = EWalletAsset.objects.get(name='Yandex Money')
+        self.assertEqual(asset.provider_name, 'Yandex')
+        self.assertEqual(asset.type, AssetType.E_WALLET)
+        self.assertEqual(asset.balance, Decimal('10000.00'))
+
+    def test_edit_e_wallet(self):
+        asset = EWalletAsset.objects.create(
+            user=self.user,
+            name='Qiwi Wallet',
+            type=AssetType.E_WALLET,
+            currency='RUB',
+            provider_name='Qiwi'
+        )
+        url = reverse('asset_edit', args=[asset.pk])
+        response = self.client.post(url, {
+            'name': 'Updated Qiwi',
+            'type': AssetType.E_WALLET,
+            'currency': 'USD',
+            'balance': '5000',
+            'provider_name': 'Qiwi Inc',
+            'is_active': 'on',
+        })
+        asset.refresh_from_db()
+        self.assertEqual(asset.name, 'Updated Qiwi')
+        self.assertEqual(asset.provider_name, 'Qiwi Inc')
+        self.assertEqual(asset.currency, 'USD')
+
+    def test_e_wallet_edit_page_has_provider_name(self):
+        asset = EWalletAsset.objects.create(
+            user=self.user,
+            name='Test Wallet',
+            type=AssetType.E_WALLET,
+            currency='RUB',
+            provider_name='Test Provider'
+        )
+        url = reverse('asset_edit', args=[asset.pk])
+        response = self.client.get(url)
+        self.assertContains(response, 'provider_name')
+        self.assertContains(response, 'Test Provider')

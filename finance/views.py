@@ -11,7 +11,7 @@ from django.db import models
 from django.http import JsonResponse, HttpResponse
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
-from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount
+from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset
 from finance.exchange_rate import ExchangeRateService
 
 
@@ -201,19 +201,25 @@ def assets(request):
     assets_list = Asset.objects.filter(user=request.user, is_active=True)
     
     grouped = {}
-    total_balance = Decimal('0')
+    total_by_currency = {}
     
     for asset in assets_list:
         asset_type = get_asset_type_label(asset.type)
         if asset_type not in grouped:
-            grouped[asset_type] = {'assets': [], 'total': Decimal('0')}
+            grouped[asset_type] = {'assets': [], 'totals_by_currency': {}}
         grouped[asset_type]['assets'].append(asset)
-        grouped[asset_type]['total'] += asset.balance
-        total_balance += asset.balance
+        
+        if asset.currency not in grouped[asset_type]['totals_by_currency']:
+            grouped[asset_type]['totals_by_currency'][asset.currency] = Decimal('0')
+        grouped[asset_type]['totals_by_currency'][asset.currency] += asset.balance
+        
+        if asset.currency not in total_by_currency:
+            total_by_currency[asset.currency] = Decimal('0')
+        total_by_currency[asset.currency] += asset.balance
     
     return render(request, 'assets.html', {
         'assets_by_type': grouped,
-        'total_balance': total_balance,
+        'total_by_currency': total_by_currency,
     })
 
 
@@ -286,6 +292,14 @@ def asset_add(request):
                 account_number=request.POST.get('account_number', ''),
                 brokerage_account_type=request.POST.get('brokerage_account_type', ''),
             )
+        elif asset_type == AssetType.E_WALLET:
+            asset = EWalletAsset.objects.create(
+                user=request.user,
+                name=name,
+                type=asset_type,
+                currency=currency,
+                provider_name=request.POST.get('provider_name', ''),
+            )
         else:
             asset = Asset.objects.create(
                 user=request.user,
@@ -331,6 +345,8 @@ def asset_edit(request, pk):
         asset = get_object_or_404(SavingAccount, pk=pk)
     elif asset.type == AssetType.BROKERAGE:
         asset = get_object_or_404(BrokerageAsset, pk=pk)
+    elif asset.type == AssetType.E_WALLET:
+        asset = get_object_or_404(EWalletAsset, pk=pk)
     
     if request.method == 'POST':
         asset.name = request.POST.get('name')
@@ -363,6 +379,8 @@ def asset_edit(request, pk):
             asset.broker_name = request.POST.get('broker_name', '')
             asset.account_number = request.POST.get('account_number', '')
             asset.brokerage_account_type = request.POST.get('brokerage_account_type', '')
+        elif asset.type == AssetType.E_WALLET:
+            asset.provider_name = request.POST.get('provider_name', '')
         
         if new_balance != current_balance:
             balance_diff = new_balance - current_balance
