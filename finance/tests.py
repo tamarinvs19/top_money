@@ -9,7 +9,7 @@ from finance.models import (
     Asset, CashAsset, DebitCardAsset, DepositAsset, 
     CreditCardAsset, BrokerageAsset, EWalletAsset, Transaction, 
     AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType,
-    BankAsset, BankInvestment, SavingAccount
+    BankAsset, BankInvestment, SavingAccount, InvitationCode, Bank
 )
 from finance.exchange_rate import ExchangeRateService
 
@@ -66,12 +66,13 @@ class AssetModelTest(TestCase):
         self.assertEqual(asset.balance, Decimal('5000.00'))
 
     def test_create_bank_card_asset(self):
+        bank = Bank.objects.create(name='Sberbank')
         asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Sberbank Card',
             type=AssetType.DEBIT_CARD,
             currency='RUB',
-            bank_name='Sberbank',
+            bank=bank,
             last_4_digits='1234'
         )
         self.assertEqual(asset.bank_name, 'Sberbank')
@@ -940,22 +941,24 @@ class BankAssetTest(TestCase):
         self.user = User.objects.create_user(username='testuser', password='testpass123')
 
     def test_card_asset_inherits_bank_name(self):
+        bank = Bank.objects.create(name='Sberbank')
         asset = DebitCardAsset.objects.create(
             user=self.user,
             name='Sberbank Card',
             type=AssetType.DEBIT_CARD,
-            bank_name='Sberbank',
+            bank=bank,
             last_4_digits='1234'
         )
         self.assertEqual(asset.bank_name, 'Sberbank')
         self.assertIsInstance(asset, BankAsset)
 
     def test_credit_card_inherits_bank_name(self):
+        bank = Bank.objects.create(name='Tinkoff')
         asset = CreditCardAsset.objects.create(
             user=self.user,
             name='Tinkoff Credit',
             type=AssetType.CREDIT_CARD,
-            bank_name='Tinkoff',
+            bank=bank,
             credit_limit=Decimal('100000.00')
         )
         self.assertEqual(asset.bank_name, 'Tinkoff')
@@ -1252,3 +1255,109 @@ class AssetBalanceWithCommissionTest(TestCase):
         )
         self.assertAlmostEqual(float(self.asset.balance), 9899.00, places=2)
         self.assertAlmostEqual(float(asset_usd.balance), 10000.00, places=2)
+
+
+class InvitationCodeModelTest(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin',
+            password='adminpass123'
+        )
+
+    def test_generate_invitation_code(self):
+        code = InvitationCode.generate_code(self.admin_user)
+        self.assertIsNotNone(code.code)
+        self.assertEqual(len(code.code), 22)
+        self.assertEqual(code.created_by, self.admin_user)
+        self.assertFalse(code.is_used)
+
+    def test_invitation_code_unique(self):
+        code1 = InvitationCode.generate_code(self.admin_user)
+        code2 = InvitationCode.generate_code(self.admin_user)
+        self.assertNotEqual(code1.code, code2.code)
+
+    def test_invitation_code_mark_as_used(self):
+        code = InvitationCode.generate_code(self.admin_user)
+        new_user = User.objects.create_user(username='newuser', password='pass123')
+        code.used_by = new_user
+        code.used_at = timezone.now()
+        code.save()
+        self.assertTrue(code.is_used)
+        self.assertEqual(code.used_by, new_user)
+
+    def test_invitation_code_str_representation(self):
+        code = InvitationCode.generate_code(self.admin_user)
+        self.assertIn('available', str(code))
+        code.used_by = User.objects.create_user(username='used', password='pass')
+        code.save()
+        self.assertIn('used', str(code))
+
+
+class InvitationCodeSignupTest(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin',
+            password='adminpass123'
+        )
+        self.invitation_code = InvitationCode.generate_code(self.admin_user)
+
+    def test_signup_with_valid_invitation_code(self):
+        response = self.client.post('/signup/', {
+            'username': 'newuser',
+            'password1': 'complexpassword123',
+            'password2': 'complexpassword123',
+            'invitation_code': self.invitation_code.code
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+        self.invitation_code.refresh_from_db()
+        self.assertTrue(self.invitation_code.is_used)
+
+    def test_signup_without_invitation_code(self):
+        response = self.client.post('/signup/', {
+            'username': 'newuser',
+            'password1': 'complexpassword123',
+            'password2': 'complexpassword123',
+            'invitation_code': ''
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_signup_with_invalid_invitation_code(self):
+        response = self.client.post('/signup/', {
+            'username': 'newuser',
+            'password1': 'complexpassword123',
+            'password2': 'complexpassword123',
+            'invitation_code': 'invalidcode123'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_signup_with_used_invitation_code(self):
+        user = User.objects.create_user(username='firstuser', password='pass123')
+        self.invitation_code.used_by = user
+        self.invitation_code.used_at = timezone.now()
+        self.invitation_code.save()
+        
+        response = self.client.post('/signup/', {
+            'username': 'seconduser',
+            'password1': 'complexpassword123',
+            'password2': 'complexpassword123',
+            'invitation_code': self.invitation_code.code
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username='seconduser').exists())
+
+    def test_invitation_code_single_use(self):
+        self.client.post('/signup/', {
+            'username': 'firstuser',
+            'password1': 'complexpassword123',
+            'password2': 'complexpassword123',
+            'invitation_code': self.invitation_code.code
+        })
+        self.invitation_code.refresh_from_db()
+        self.assertTrue(self.invitation_code.is_used)
+        
+        codes = InvitationCode.objects.filter(code=self.invitation_code.code)
+        self.assertEqual(codes.count(), 1)
+

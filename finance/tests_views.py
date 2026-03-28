@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset
+from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode
 
 
 def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
@@ -34,6 +34,8 @@ class AuthViewsTest(TestCase):
         self.client = Client()
         self.signup_url = reverse('signup')
         self.login_url = reverse('login')
+        self.admin_user = User.objects.create_user(username='admin', password='adminpass')
+        self.invitation_code = InvitationCode.generate_code(self.admin_user)
     
     def test_signup_get(self):
         response = self.client.get(self.signup_url)
@@ -45,14 +47,16 @@ class AuthViewsTest(TestCase):
             'username': 'newuser',
             'password1': 'testpassword123',
             'password2': 'testpassword123',
+            'invitation_code': self.invitation_code.code,
         })
         self.assertTrue(User.objects.filter(username='newuser').exists())
     
     def test_signup_redirects_to_transactions(self):
         response = self.client.post(self.signup_url, {
-            'username': 'newuser',
+            'username': 'newuser2',
             'password1': 'testpassword123',
             'password2': 'testpassword123',
+            'invitation_code': InvitationCode.generate_code(self.admin_user).code,
         }, follow=True)
         self.assertRedirects(response, reverse('transactions'))
     
@@ -426,7 +430,7 @@ class AssetViewsTest(TestCase):
             'type': AssetType.DEBIT_CARD,
             'currency': 'RUB',
             'balance': '2000',
-            'bank_name': 'Tinkoff',
+            'bank': '',
             'is_active': 'on',
         })
         asset.refresh_from_db()
@@ -437,7 +441,6 @@ class AssetViewsTest(TestCase):
     
     def test_asset_edit_can_add_field_that_was_null_at_creation(self):
         asset = create_asset_with_balance(self.user, 'Test Card', AssetType.DEBIT_CARD, 'RUB', Decimal('1000.00'))
-        asset.bank_name = ''
         asset.last_4_digits = ''
         asset.save()
         
@@ -447,11 +450,10 @@ class AssetViewsTest(TestCase):
             'type': AssetType.DEBIT_CARD,
             'currency': 'RUB',
             'balance': '1000',
-            'bank_name': 'Tinkoff',
+            'bank': '',
             'last_4_digits': '1234',
         })
         asset.refresh_from_db()
-        self.assertEqual(asset.bank_name, 'Tinkoff')
         self.assertEqual(asset.last_4_digits, '1234')
     
     def test_asset_edit_other_user_forbidden(self):
@@ -1164,10 +1166,10 @@ class AssetFormFieldsTest(TestCase):
         self.assertContains(response, 'id="cashFields"')
         self.assertContains(response, 'Location')
     
-    def test_debit_card_form_shows_bank_name_and_last_4_digits(self):
+    def test_debit_card_form_shows_bank_and_last_4_digits(self):
         response = self.client.get(reverse('asset_add'))
         self.assertContains(response, 'id="cardFields"')
-        self.assertContains(response, 'Bank Name')
+        self.assertContains(response, 'Bank')
         self.assertContains(response, 'Last 4 Digits')
     
     def test_deposit_form_shows_interest_rate_and_term_fields(self):

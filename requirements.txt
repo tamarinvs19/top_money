@@ -3,3 +3,5 @@ gunicorn>=21.0
 python-dotenv>=1.0
 openpyxl>=3.1
 requests>=2.31
+django-model-utils>=4.3
+Pillow>=10.0

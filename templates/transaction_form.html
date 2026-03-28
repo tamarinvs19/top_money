@@ -73,7 +73,7 @@
               <select name="from_asset" class="form-select" id="fromAssetSelect" onchange="updateRate('from')">
                 <option value="">-- Select --</option>
                 {% for asset in assets %}
-                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
+                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" data-bank-name="{{ asset.bank_name }}" {% if asset.bank and asset.bank.image %}data-bank-image="{{ asset.bank.image.url }}"{% endif %} {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
                 {% endfor %}
               </select>
               <input type="number" step="0.000001" name="from_asset_rate" class="form-control" style="width: 120px;" id="fromAssetRate" value="{% if transaction.from_asset_rate %}{{ transaction.from_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
@@ -85,7 +85,7 @@
               <select name="to_asset" class="form-select" id="toAssetSelect" onchange="updateRate('to')">
                 <option value="">-- Select --</option>
                 {% for asset in assets %}
-                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
+                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" data-bank-name="{{ asset.bank_name }}" {% if asset.bank and asset.bank.image %}data-bank-image="{{ asset.bank.image.url }}"{% endif %} {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
                 {% endfor %}
               </select>
               <input type="number" step="0.000001" name="to_asset_rate" class="form-control" style="width: 120px;" id="toAssetRate" value="{% if transaction.to_asset_rate %}{{ transaction.to_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
@@ -116,6 +116,27 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script>
+function formatAsset(asset) {
+    if (!asset.id) return asset.text;
+    var img = $(asset.element).data('bank-image');
+    if (img) {
+        return $('<span><img src="' + img + '" style="width:24px;height:24px;object-fit:contain;"> ' + asset.text + '</span>');
+    }
+    return asset.text;
+}
+$(document).ready(function() {
+    $('#fromAssetSelect').select2({
+        templateResult: formatAsset,
+        templateSelection: formatAsset
+    });
+    $('#toAssetSelect').select2({
+        templateResult: formatAsset,
+        templateSelection: formatAsset
+    });
+});
+</script>
 <script>
   const transactionCurrency = "{{ transaction.currency|default:'RUB' }}";
   const transactionDate = "{{ transaction.date|date:'Y-m-d'|default:initial_date }}";

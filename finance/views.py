@@ -9,21 +9,43 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db import models
 from django.http import JsonResponse, HttpResponse
+from django import forms
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
-from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset
+from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, RUSSIAN_BANKS, BankAsset
+from finance.models import InvitationCode
 from finance.exchange_rate import ExchangeRateService
+
+
+class SignupForm(UserCreationForm):
+    invitation_code = forms.CharField(max_length=32, required=True, label='Invitation Code')
+    
+    def clean_invitation_code(self):
+        code = self.cleaned_data.get('invitation_code', '').strip()
+        if not code:
+            raise forms.ValidationError('Invitation code is required.')
+        try:
+            invitation = InvitationCode.objects.get(code=code)
+            if invitation.is_used:
+                raise forms.ValidationError('This invitation code has already been used.')
+        except InvitationCode.DoesNotExist:
+            raise forms.ValidationError('Invalid invitation code.')
+        return code
 
 
 def signup(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = SignupForm(request.POST)
         if form.is_valid():
             user = form.save()
+            code = InvitationCode.objects.get(code=form.cleaned_data['invitation_code'])
+            code.used_by = user
+            code.used_at = timezone.now()
+            code.save()
             login(request, user)
             return redirect('transactions')
     else:
-        form = UserCreationForm()
+        form = SignupForm()
     return render(request, 'registration/signup.html', {'form': form})
 
 
@@ -112,7 +134,7 @@ def transaction_add(request, year=None, month=None, day=None):
     else:
         initial_date = make_aware(now)
     
-    assets = Asset.objects.filter(user=request.user, is_active=True)
+    assets = Asset.objects.select_subclasses().filter(user=request.user, is_active=True)
     
     if request.method == 'POST':
         t_type = request.POST.get('type')
@@ -160,7 +182,7 @@ def transaction_add(request, year=None, month=None, day=None):
 @login_required
 def transaction_edit(request, pk):
     transaction = get_object_or_404(Transaction, pk=pk, user=request.user)
-    assets = Asset.objects.filter(user=request.user, is_active=True)
+    assets = Asset.objects.select_subclasses().filter(user=request.user, is_active=True)
     
     if request.method == 'POST':
         transaction.type = request.POST.get('type')
@@ -198,7 +220,7 @@ def transaction_edit(request, pk):
 
 @login_required
 def assets(request):
-    assets_list = Asset.objects.filter(user=request.user, is_active=True)
+    assets_list = Asset.objects.select_subclasses().filter(user=request.user, is_active=True)
     
     grouped = {}
     total_by_currency = {}
@@ -245,7 +267,7 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                bank_name=request.POST.get('bank_name', ''),
+                bank_id=request.POST.get('bank') or None,
                 last_4_digits=request.POST.get('last_4_digits', ''),
             )
         elif asset_type == AssetType.CREDIT_CARD:
@@ -254,7 +276,7 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                bank_name=request.POST.get('bank_name') or None,
+                bank_id=request.POST.get('bank') or None,
                 credit_limit=request.POST.get('credit_limit') or None,
                 grace_period_days=request.POST.get('grace_period_days') or None,
                 last_4_digits=request.POST.get('last_4_digits', ''),
@@ -267,7 +289,7 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                bank_name=request.POST.get('bank_name') or None,
+                bank_id=request.POST.get('bank') or None,
                 interest_rate=request.POST.get('interest_rate') or None,
                 term_months=request.POST.get('term_months') or None,
                 renewal_date=renewal_date if renewal_date else None,
@@ -279,7 +301,7 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                bank_name=request.POST.get('bank_name') or None,
+                bank_id=request.POST.get('bank') or None,
                 interest_rate=request.POST.get('interest_rate') or None,
             )
         elif asset_type == AssetType.BROKERAGE:
@@ -325,6 +347,7 @@ def asset_add(request):
     return render(request, 'asset_form.html', {
         'asset_types': AssetType.choices,
         'brokerage_account_types': BrokerageAccountType.choices,
+        'banks': Bank.objects.all(),
     })
 
 
@@ -358,22 +381,22 @@ def asset_edit(request, pk):
         if asset.type == AssetType.CASH:
             asset.location = request.POST.get('location', '')
         elif asset.type == AssetType.DEBIT_CARD:
-            asset.bank_name = request.POST.get('bank_name', '')
+            asset.bank_id = request.POST.get('bank') or None
             asset.last_4_digits = request.POST.get('last_4_digits', '')
         elif asset.type == AssetType.CREDIT_CARD:
-            asset.bank_name = request.POST.get('bank_name', '')
+            asset.bank_id = request.POST.get('bank') or None
             asset.credit_limit = request.POST.get('credit_limit') or None
             asset.grace_period_days = request.POST.get('grace_period_days') or None
             asset.last_4_digits = request.POST.get('last_4_digits', '')
             asset.billing_day = request.POST.get('billing_day') or None
         elif asset.type == AssetType.DEPOSIT:
-            asset.bank_name = request.POST.get('bank_name', '')
+            asset.bank_id = request.POST.get('bank') or None
             asset.interest_rate = request.POST.get('interest_rate') or None
             asset.term_months = request.POST.get('term_months') or None
             asset.renewal_date = request.POST.get('renewal_date') or None
             asset.is_capitalized = request.POST.get('is_capitalized') == 'on'
         elif asset.type == AssetType.SAVING_ACCOUNT:
-            asset.bank_name = request.POST.get('bank_name', '')
+            asset.bank_id = request.POST.get('bank') or None
             asset.interest_rate = request.POST.get('interest_rate') or None
         elif asset.type == AssetType.BROKERAGE:
             asset.broker_name = request.POST.get('broker_name', '')
@@ -414,6 +437,7 @@ def asset_edit(request, pk):
         'asset': asset,
         'asset_types': AssetType.choices,
         'brokerage_account_types': BrokerageAccountType.choices,
+        'banks': Bank.objects.all(),
     })
 
 
@@ -818,3 +842,40 @@ def api_exchange_rate(request):
 
     rate = ExchangeRateService.get_rate(from_currency, to_currency, at_date)
     return JsonResponse({'rate': str(rate)})
+
+
+@login_required
+def banks(request):
+    banks_list = Bank.objects.all()
+    return render(request, 'banks.html', {'banks': banks_list})
+
+
+@login_required
+def bank_add(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        image = request.FILES.get('image')
+        Bank.objects.create(name=name, image=image)
+        return redirect('banks')
+    return render(request, 'bank_form.html')
+
+
+@login_required
+def bank_edit(request, pk):
+    bank = get_object_or_404(Bank, pk=pk)
+    if request.method == 'POST':
+        bank.name = request.POST.get('name')
+        if request.FILES.get('image'):
+            bank.image = request.FILES.get('image')
+        bank.save()
+        return redirect('banks')
+    return render(request, 'bank_form.html', {'bank': bank})
+
+
+@login_required
+def bank_view(request, pk):
+    bank = get_object_or_404(Bank, pk=pk)
+    assets = []
+    for asset_class in [DebitCardAsset, CreditCardAsset, DepositAsset, SavingAccount]:
+        assets.extend(asset_class.objects.filter(bank=bank, user=request.user))
+    return render(request, 'bank_view.html', {'bank': bank, 'assets': assets})

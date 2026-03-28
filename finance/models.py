@@ -2,8 +2,43 @@ import uuid
 from decimal import Decimal
 
 from django.db import models
+from model_utils.managers import InheritanceManager
 from django.contrib.auth.models import User
 from django.utils import timezone
+
+
+class Bank(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    image = models.ImageField(upload_to='banks/', blank=True, null=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+RUSSIAN_BANKS = [
+    ('Sberbank', 'sberbank.png'),
+    ('T-Bank', 'tbank.png'),
+    ('Alfa-Bank', 'alfa.png'),
+    ('VTB', 'vtb.png'),
+    ('Gazprombank', 'gazprombank.png'),
+    ('Rosselkhozbank', 'rosselkhozbank.png'),
+    ('Otkritie', 'otkritie.png'),
+    ('Raiffeisenbank', 'raiffeisen.png'),
+    ('MKB', 'mkb.png'),
+    ('UniCredit Bank', 'unicredit.png'),
+    ('PSBank', 'psbank.png'),
+    ('Russian Standard Bank', 'russianstandard.png'),
+    ('MTS Bank', 'mts.png'),
+    ('BIN', 'bin.png'),
+    ('Ozon Bank', 'ozon.png'),
+    ('Yandex Bank', 'yandex.png'),
+    ('BCS Bank', 'bcs.png'),
+    ('DOM.RF Bank', 'domrf.png'),
+    ('Svoi Bank', 'svoi.png'),
+]
 
 
 class AssetType(models.TextChoices):
@@ -70,6 +105,7 @@ class RefillCategory(models.TextChoices):
 
 
 class Asset(models.Model):
+    objects = InheritanceManager()
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='%(class)s_assets')
     name = models.CharField(max_length=100)
@@ -130,10 +166,14 @@ class CashAsset(Asset):
 
 
 class BankAsset(Asset):
-    bank_name = models.CharField(max_length=100, blank=True)
+    bank = models.ForeignKey(Bank, on_delete=models.SET_NULL, blank=True, null=True, related_name='%(class)s_assets')
 
     class Meta:
         abstract = True
+
+    @property
+    def bank_name(self):
+        return self.bank.name if self.bank else ''
 
 
 class CardAsset(BankAsset):
@@ -241,3 +281,28 @@ class Transaction(models.Model):
     
     def type_label(self):
         return get_transaction_type_label(self.type)
+
+
+class InvitationCode(models.Model):
+    code = models.CharField(max_length=32, unique=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_invitations')
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_by = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='used_invitation')
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        status = 'used' if self.used_by else 'available'
+        return f"{self.code} ({status})"
+
+    @property
+    def is_used(self):
+        return self.used_by is not None
+
+    @classmethod
+    def generate_code(cls, created_by):
+        import secrets
+        code = secrets.token_urlsafe(16)
+        return cls.objects.create(code=code, created_by=created_by)

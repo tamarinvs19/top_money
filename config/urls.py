@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
+from django.conf import settings
+from django.conf.urls.static import static
 from finance import views
 
 urlpatterns = [
@@ -27,6 +29,11 @@ urlpatterns = [
     path('asset/<uuid:pk>/edit/', views.asset_edit, name='asset_edit'),
     path('asset/<uuid:pk>/delete/', views.asset_delete, name='asset_delete'),
     
+    path('banks/', views.banks, name='banks'),
+    path('bank/add/', views.bank_add, name='bank_add'),
+    path('bank/<int:pk>/edit/', views.bank_edit, name='bank_edit'),
+    path('bank/<int:pk>/', views.bank_view, name='bank_view'),
+    
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('signup/', views.signup, name='signup'),
@@ -36,3 +43,6 @@ urlpatterns = [
     
     path('api/exchange-rate/', views.api_exchange_rate, name='api_exchange_rate'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

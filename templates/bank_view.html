@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}{{ bank.name }} - Finance Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  {% if bank.image %}
+  <img src="{{ bank.image.url }}" alt="{{ bank.name }}" style="width: 50px; height: 50px; object-fit: contain; margin-right: 15px;">
+  {% else %}
+  <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+    <i class="bi bi-bank" style="font-size: 24px;"></i>
+  </div>
+  {% endif %}
+  <div>
+    <h2 class="mb-0">{{ bank.name }}</h2>
+    <a href="{% url 'bank_edit' bank.pk %}" class="text-decoration-none small">Edit bank</a>
+  </div>
+</div>
+
+<h4>Assets</h4>
+<div class="card mb-3">
+  <div class="card-body p-0">
+    {% for asset in assets %}
+    <div class="card-body border-bottom d-flex justify-content-between align-items-center">
+      <a href="{% url 'transactions_asset' asset.pk %}" class="transaction-link d-flex justify-content-between align-items-center" style="width: 100%">
+        <div>
+          <strong>{{ asset.name }}</strong>
+          <small class="text-muted d-block">{{ asset.get_type_display }}</small>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <a href="{% url 'asset_edit' asset.pk %}" class="text-decoration-none" style="margin-right: 0.5rem;">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <strong class="{% if asset.balance >= 0 %}text-dark{% else %}text-danger{% endif %}">
+            {{ asset.balance|floatformat:2 }}
+          </strong>
+          <small class="text-muted">{% if asset.currency == 'RUB' %}₽{% elif asset.currency == 'USD' %}${% elif asset.currency == 'EUR' %}€{% elif asset.currency == 'CNY' %}¥{% else %}{{ asset.currency }}{% endif %}</small>
+        </div>
+      </a>
+    </div>
+    {% empty %}
+    <div class="card-body text-center text-muted">
+      <p>No assets in this bank</p>
+      <a href="{% url 'asset_add' %}" class="btn btn-primary">Add asset</a>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<a href="{% url 'banks' %}" class="btn btn-outline-secondary">Back to banks</a>
+{% endblock %}

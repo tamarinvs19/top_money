@@ -44,8 +44,13 @@
 
           <div id="bankAssetFields" class="asset-fields" style="display: none;">
             <div class="mb-3">
-              <label class="form-label">Bank Name</label>
-              <input type="text" name="bank_name" class="form-control" value="{{ asset.bank_name|default:'' }}" />
+              <label class="form-label">Bank</label>
+              <select name="bank" class="form-select">
+                <option value="">-- Select Bank --</option>
+                {% for bank in banks %}
+                <option value="{{ bank.pk }}" {% if asset.bank_id == bank.pk %}selected{% endif %}>{{ bank.name }}</option>
+                {% endfor %}
+              </select>
             </div>
           </div>
 
