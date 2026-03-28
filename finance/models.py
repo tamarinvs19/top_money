@@ -18,7 +18,7 @@ class Bank(models.Model):
         return self.name
 
 
-RUSSIAN_BANKS = [
+BANKS = [
     ('Sberbank', 'sberbank.png'),
     ('T-Bank', 'tbank.png'),
     ('Alfa-Bank', 'alfa.png'),
@@ -38,6 +38,25 @@ RUSSIAN_BANKS = [
     ('BCS Bank', 'bcs.png'),
     ('DOM.RF Bank', 'domrf.png'),
     ('Svoi Bank', 'svoi.png'),
+]
+
+
+class Provider(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    image = models.ImageField(upload_to='providers/', blank=True, null=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+PROVIDERS = [
+    ('Qiwi', 'qiwi.png'),
+    ('WebMoney', 'webmoney.png'),
+    ('Finuslugi', 'finuslugi.png'),
+    ('Alibaba', 'alibaba.png'),
 ]
 
 

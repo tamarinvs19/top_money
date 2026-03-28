@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode, CommissionType
+from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode, CommissionType, Provider, Bank
 
 
 def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
@@ -1397,3 +1397,100 @@ class EWalletViewsTest(TestCase):
         response = self.client.get(url)
         self.assertContains(response, 'provider_name')
         self.assertContains(response, 'Test Provider')
+
+
+class ProviderViewsTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+
+    def test_banks_page_shows_providers(self):
+        Provider.objects.create(name='Qiwi')
+        Provider.objects.create(name='YooMoney')
+        response = self.client.get(reverse('banks'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Providers')
+        self.assertContains(response, 'Qiwi')
+        self.assertContains(response, 'YooMoney')
+
+    def test_banks_page_shows_add_provider_button(self):
+        response = self.client.get(reverse('banks'))
+        self.assertContains(response, 'Add Provider')
+
+    def test_provider_add_get(self):
+        response = self.client.get(reverse('provider_add'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Add Provider')
+        self.assertContains(response, 'Provider Name')
+
+    def test_provider_add_post(self):
+        response = self.client.post(reverse('provider_add'), {
+            'name': 'WebMoney'
+        })
+        self.assertRedirects(response, reverse('banks'))
+        provider = Provider.objects.get(name='WebMoney')
+        self.assertEqual(provider.name, 'WebMoney')
+
+    def test_provider_edit_get(self):
+        provider = Provider.objects.create(name='Test Provider')
+        url = reverse('provider_edit', args=[provider.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Edit Provider')
+        self.assertContains(response, 'Test Provider')
+
+    def test_provider_edit_post(self):
+        provider = Provider.objects.create(name='Old Name')
+        url = reverse('provider_edit', args=[provider.pk])
+        response = self.client.post(url, {
+            'name': 'New Name'
+        })
+        self.assertRedirects(response, reverse('banks'))
+        provider.refresh_from_db()
+        self.assertEqual(provider.name, 'New Name')
+
+    def test_provider_view_page(self):
+        provider = Provider.objects.create(name='Qiwi')
+        wallet = EWalletAsset.objects.create(
+            user=self.user,
+            name='My Qiwi',
+            type=AssetType.E_WALLET,
+            currency='RUB',
+            provider_name='Qiwi'
+        )
+        url = reverse('provider_view', args=[provider.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Qiwi')
+        self.assertContains(response, 'My Qiwi')
+
+    def test_provider_view_shows_e_wallets(self):
+        provider = Provider.objects.create(name='YooMoney')
+        wallet1 = EWalletAsset.objects.create(
+            user=self.user,
+            name='Personal Wallet',
+            type=AssetType.E_WALLET,
+            currency='RUB',
+            provider_name='YooMoney'
+        )
+        wallet2 = EWalletAsset.objects.create(
+            user=self.user,
+            name='Business Wallet',
+            type=AssetType.E_WALLET,
+            currency='USD',
+            provider_name='YooMoney'
+        )
+        url = reverse('provider_view', args=[provider.pk])
+        response = self.client.get(url)
+        self.assertContains(response, 'Personal Wallet')
+        self.assertContains(response, 'Business Wallet')
+
+    def test_banks_page_shows_separate_sections_for_banks_and_providers(self):
+        Bank.objects.create(name='Sberbank')
+        Provider.objects.create(name='Qiwi')
+        response = self.client.get(reverse('banks'))
+        self.assertContains(response, 'Banks')
+        self.assertContains(response, 'Sberbank')
+        self.assertContains(response, 'Providers')
+        self.assertContains(response, 'Qiwi')

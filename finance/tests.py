@@ -9,7 +9,8 @@ from finance.models import (
     Asset, CashAsset, DebitCardAsset, DepositAsset, 
     CreditCardAsset, BrokerageAsset, EWalletAsset, Transaction, 
     AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType,
-    BankAsset, BankInvestment, SavingAccount, InvitationCode, Bank, CommissionType
+    BankAsset, BankInvestment, SavingAccount, InvitationCode, Bank, CommissionType,
+    Provider
 )
 from finance.exchange_rate import ExchangeRateService
 
@@ -1480,4 +1481,29 @@ class InvitationCodeSignupTest(TestCase):
         
         codes = InvitationCode.objects.filter(code=self.invitation_code.code)
         self.assertEqual(codes.count(), 1)
+
+
+class ProviderModelTest(TestCase):
+    def test_create_provider(self):
+        provider = Provider.objects.create(name='Qiwi')
+        self.assertEqual(provider.name, 'Qiwi')
+        self.assertFalse(provider.image)
+
+    def test_provider_str(self):
+        provider = Provider.objects.create(name='YooMoney')
+        self.assertEqual(str(provider), 'YooMoney')
+
+    def test_provider_unique_name(self):
+        Provider.objects.create(name='UniqueProvider')
+        with self.assertRaises(Exception):
+            Provider.objects.create(name='UniqueProvider')
+
+    def test_provider_ordering(self):
+        Provider.objects.create(name='Zebra')
+        Provider.objects.create(name='Alpha')
+        Provider.objects.create(name='Beta')
+        providers = list(Provider.objects.all())
+        self.assertEqual(providers[0].name, 'Alpha')
+        self.assertEqual(providers[1].name, 'Beta')
+        self.assertEqual(providers[2].name, 'Zebra')
 

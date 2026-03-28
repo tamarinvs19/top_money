@@ -34,6 +34,10 @@ urlpatterns = [
     path('bank/<int:pk>/edit/', views.bank_edit, name='bank_edit'),
     path('bank/<int:pk>/', views.bank_view, name='bank_view'),
     
+    path('provider/add/', views.provider_add, name='provider_add'),
+    path('provider/<int:pk>/edit/', views.provider_edit, name='provider_edit'),
+    path('provider/<int:pk>/', views.provider_view, name='provider_view'),
+    
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('signup/', views.signup, name='signup'),

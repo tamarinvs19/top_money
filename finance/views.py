@@ -12,7 +12,7 @@ from django.http import JsonResponse, HttpResponse
 from django import forms
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
-from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, RUSSIAN_BANKS, BankAsset
+from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, BANKS, BankAsset, Provider, PROVIDERS
 from finance.models import InvitationCode
 from finance.exchange_rate import ExchangeRateService
 
@@ -851,7 +851,8 @@ def api_exchange_rate(request):
 @login_required
 def banks(request):
     banks_list = Bank.objects.all()
-    return render(request, 'banks.html', {'banks': banks_list})
+    providers_list = Provider.objects.all()
+    return render(request, 'banks.html', {'banks': banks_list, 'providers': providers_list})
 
 
 @login_required
@@ -883,3 +884,32 @@ def bank_view(request, pk):
     for asset_class in [DebitCardAsset, CreditCardAsset, DepositAsset, SavingAccount]:
         assets.extend(asset_class.objects.filter(bank=bank, user=request.user))
     return render(request, 'bank_view.html', {'bank': bank, 'assets': assets})
+
+
+@login_required
+def provider_add(request):
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        image = request.FILES.get('image')
+        Provider.objects.create(name=name, image=image)
+        return redirect('banks')
+    return render(request, 'provider_form.html')
+
+
+@login_required
+def provider_edit(request, pk):
+    provider = get_object_or_404(Provider, pk=pk)
+    if request.method == 'POST':
+        provider.name = request.POST.get('name')
+        if request.FILES.get('image'):
+            provider.image = request.FILES.get('image')
+        provider.save()
+        return redirect('banks')
+    return render(request, 'provider_form.html', {'provider': provider})
+
+
+@login_required
+def provider_view(request, pk):
+    provider = get_object_or_404(Provider, pk=pk)
+    assets = EWalletAsset.objects.filter(provider_name=provider.name, user=request.user)
+    return render(request, 'provider_view.html', {'provider': provider, 'assets': assets})

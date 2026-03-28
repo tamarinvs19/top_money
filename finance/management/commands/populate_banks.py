@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.conf import settings
-from finance.models import Bank, RUSSIAN_BANKS
+from finance.models import Bank, BANKS
 import os
 
 
@@ -10,7 +10,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         created_count = 0
         updated_count = 0
-        for bank_name, image_name in RUSSIAN_BANKS:
+        for bank_name, image_name in BANKS:
             image_path = os.path.join(settings.MEDIA_ROOT, 'banks', image_name)
             bank, created = Bank.objects.get_or_create(name=bank_name)
             if created:
