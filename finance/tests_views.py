@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode
+from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode, CommissionType
 
 
 def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
@@ -342,6 +342,81 @@ class TransactionExchangeRateFormTest(TestCase):
         })
         transaction.refresh_from_db()
         self.assertEqual(transaction.commission_rate, Decimal('1.5'))
+
+    def test_transaction_edit_updates_commission_type(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('50.00'),
+            currency='RUB',
+            from_asset=self.asset_usd,
+            commission_rate=Decimal('0'),
+            commission_type=CommissionType.PERCENT,
+            date=timezone.now()
+        )
+        url = reverse('transaction_edit', args=[transaction.pk])
+        response = self.client.post(url, {
+            'type': TransactionType.WASTE,
+            'amount': '50',
+            'currency': 'RUB',
+            'category': 'OTHER_WASTE',
+            'description': 'Updated',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': self.asset_usd.pk,
+            'commission_rate': '5',
+            'commission_type': 'ABSOLUTE',
+        })
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.commission_rate, Decimal('5'))
+        self.assertEqual(transaction.commission_type, CommissionType.ABSOLUTE)
+
+    def test_transaction_edit_commission_type_percent(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('50.00'),
+            currency='RUB',
+            from_asset=self.asset_usd,
+            commission_rate=Decimal('0'),
+            commission_type=CommissionType.ABSOLUTE,
+            date=timezone.now()
+        )
+        url = reverse('transaction_edit', args=[transaction.pk])
+        response = self.client.post(url, {
+            'type': TransactionType.WASTE,
+            'amount': '50',
+            'currency': 'RUB',
+            'category': 'OTHER_WASTE',
+            'description': 'Updated',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': self.asset_usd.pk,
+            'commission_rate': '2.5',
+            'commission_type': 'PERCENT',
+        })
+        transaction.refresh_from_db()
+        self.assertEqual(transaction.commission_rate, Decimal('2.5'))
+        self.assertEqual(transaction.commission_type, CommissionType.PERCENT)
+
+    def test_transaction_edit_form_displays_commission_type_options(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('50.00'),
+            currency='RUB',
+            from_asset=self.asset_usd,
+            commission_rate=Decimal('1.5'),
+            commission_type=CommissionType.PERCENT,
+            date=timezone.now()
+        )
+        url = reverse('transaction_edit', args=[transaction.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'commission_percent')
+        self.assertContains(response, 'commission_absolute')
+        self.assertContains(response, 'PERCENT')
+        self.assertContains(response, 'ABSOLUTE')
 
 
 class AssetViewsTest(TestCase):

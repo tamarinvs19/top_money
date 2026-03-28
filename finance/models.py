@@ -68,6 +68,11 @@ class TransactionType(models.TextChoices):
     CHANGING_BALANCE = 'CHANGING_BALANCE', 'Changing Balance'
 
 
+class CommissionType(models.TextChoices):
+    PERCENT = 'PERCENT', 'Percent'
+    ABSOLUTE = 'ABSOLUTE', 'Absolute'
+
+
 def get_transaction_type_label(name: str):
     return dict(TransactionType.choices).get(name, "")
 
@@ -129,12 +134,12 @@ class Asset(models.Model):
         if at_time is None:
             at_time = timezone.now()
 
-        incoming = self.incoming_transactions.filter(
+        incoming = list(self.incoming_transactions.filter(
             date__lte=at_time
-        )
-        outgoing = self.outgoing_transactions.filter(
+        ).select_related('to_asset'))
+        outgoing = list(self.outgoing_transactions.filter(
             date__lte=at_time
-        )
+        ).select_related('from_asset'))
 
         total_in = Decimal('0')
         total_out = Decimal('0')
@@ -151,7 +156,13 @@ class Asset(models.Model):
                 amount = t.amount / t.from_asset_rate
             else:
                 amount = t.amount
-            commission = amount * t.commission_rate if t.commission_rate else Decimal('0')
+            if t.commission_rate and t.commission_rate != 0:
+                if t.commission_type == CommissionType.ABSOLUTE:
+                    commission = t.commission_rate
+                else:
+                    commission = amount * t.commission_rate / Decimal('100')
+            else:
+                commission = Decimal('0')
             total_out += amount + commission
 
         return total_in - total_out
@@ -268,6 +279,11 @@ class Transaction(models.Model):
     )
     to_asset_rate = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('1'))
     commission_rate = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal('0'))
+    commission_type = models.CharField(
+        max_length=10,
+        choices=CommissionType.choices,
+        default=CommissionType.PERCENT
+    )
     category = models.CharField(max_length=30, choices=WasteCategory.choices + RefillCategory.choices, blank=True)
     description = models.TextField(blank=True)
     date = models.DateTimeField()
@@ -281,6 +297,14 @@ class Transaction(models.Model):
     
     def type_label(self):
         return get_transaction_type_label(self.type)
+
+    @property
+    def commission_amount(self) -> Decimal:
+        if self.commission_rate is None or self.commission_rate == 0:
+            return Decimal('0')
+        if self.commission_type == CommissionType.ABSOLUTE:
+            return self.commission_rate
+        return self.amount * self.commission_rate / Decimal('100')
 
 
 class InvitationCode(models.Model):

@@ -151,6 +151,7 @@ def transaction_add(request, year=None, month=None, day=None):
         from_asset_rate = Decimal(request.POST.get('from_asset_rate', '1'))
         to_asset_rate = Decimal(request.POST.get('to_asset_rate', '1'))
         commission_rate = Decimal(request.POST.get('commission_rate', '0') or '0')
+        commission_type = request.POST.get('commission_type', 'PERCENT')
         
         Transaction.objects.create(
             user=request.user,
@@ -165,6 +166,7 @@ def transaction_add(request, year=None, month=None, day=None):
             to_asset_id=to_asset_id if to_asset_id else None,
             to_asset_rate=to_asset_rate,
             commission_rate=commission_rate,
+            commission_type=commission_type,
         )
         
         return redirect('transactions')
@@ -197,12 +199,14 @@ def transaction_edit(request, pk):
         from_asset_rate = Decimal(request.POST.get('from_asset_rate', '1'))
         to_asset_rate = Decimal(request.POST.get('to_asset_rate', '1'))
         commission_rate = Decimal(request.POST.get('commission_rate', '0') or '0')
+        commission_type = request.POST.get('commission_type', 'PERCENT')
         
         transaction.from_asset_id = from_asset_id if from_asset_id else None
         transaction.from_asset_rate = from_asset_rate
         transaction.to_asset_id = to_asset_id if to_asset_id else None
         transaction.to_asset_rate = to_asset_rate
         transaction.commission_rate = commission_rate
+        transaction.commission_type = commission_type
         transaction.save()
         
         return redirect('transactions')
