@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}{% if provider %}Edit Provider{% else %}Add Provider{% endif %} - Finance Manager{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
@@ -12,15 +13,14 @@
             <label class="form-label">Provider Name</label>
             <input type="text" name="name" class="form-control" value="{{ provider.name|default:'' }}" required />
           </div>
+          {% if provider.image %}
           <div class="mb-3">
             <label class="form-label">Provider Logo</label>
-            <input type="file" name="image" class="form-control" accept="image/*" />
-            {% if provider.image %}
-            <div class="mt-2">
-              <img src="{{ provider.image.url }}" alt="{{ provider.name }}" style="max-width: 100px; max-height: 100px; object-fit: contain;">
+            <div>
+              <img src="{% static provider.image %}" alt="{{ provider.name }}" style="max-width: 100px; max-height: 100px; object-fit: contain;">
             </div>
-            {% endif %}
           </div>
+          {% endif %}
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">Save</button>
             <a href="{% url 'banks' %}" class="btn btn-outline-secondary">Cancel</a>

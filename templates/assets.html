@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Assets - Finance Manager{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -51,13 +52,13 @@
         <div class="d-flex align-items-center gap-2">
           {% if asset.bank %}
             {% if asset.bank.image %}
-            <img src="{{ asset.bank.image.url }}" alt="{{ asset.bank.name }}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 4px;">
+            <img src="{% static asset.bank.image %}" alt="{{ asset.bank.name }}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 4px;">
             {% else %}
             <span class="badge bg-secondary"><i class="bi bi-bank"></i></span>
             {% endif %}
           {% elif asset.provider %}
             {% if asset.provider.image %}
-            <img src="{{ asset.provider.image.url }}" alt="{{ asset.provider.name }}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 4px;">
+            <img src="{% static asset.provider.image %}" alt="{{ asset.provider.name }}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 4px;">
             {% else %}
             <span class="badge bg-secondary"><i class="bi bi-wallet2"></i></span>
             {% endif %}

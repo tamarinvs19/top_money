@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}{{ provider.name }} - Finance Manager{% endblock %}
 {% block content %}
 <div class="d-flex align-items-center mb-4">
   {% if provider.image %}
-  <img src="{{ provider.image.url }}" alt="{{ provider.name }}" style="width: 50px; height: 50px; object-fit: contain; margin-right: 15px;">
+  <img src="{% static provider.image %}" alt="{{ provider.name }}" style="width: 50px; height: 50px; object-fit: contain; margin-right: 15px;">
   {% else %}
   <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
     <i class="bi bi-wallet2" style="font-size: 24px;"></i>
