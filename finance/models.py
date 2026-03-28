@@ -268,11 +268,21 @@ class BrokerageAsset(Asset):
 
 
 class EWalletAsset(Asset):
-    provider_name = models.CharField(max_length=100, blank=True)
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='%(class)s_assets'
+    )
 
     class Meta:
         verbose_name = 'E-Wallet'
         verbose_name_plural = 'E-Wallets'
+
+    @property
+    def provider_name(self):
+        return self.provider.name if self.provider else ''
 
 
 class Transaction(models.Model):

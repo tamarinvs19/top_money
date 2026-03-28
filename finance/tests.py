@@ -1043,6 +1043,7 @@ class SavingAccountTest(TestCase):
 class EWalletAssetTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.provider = Provider.objects.create(name='Yandex')
 
     def test_create_e_wallet_asset(self):
         asset = EWalletAsset.objects.create(
@@ -1050,7 +1051,7 @@ class EWalletAssetTest(TestCase):
             name='Yandex Money',
             type=AssetType.E_WALLET,
             currency='RUB',
-            provider_name='Yandex'
+            provider=self.provider
         )
         self.assertEqual(asset.name, 'Yandex Money')
         self.assertEqual(asset.type, AssetType.E_WALLET)
@@ -1067,12 +1068,13 @@ class EWalletAssetTest(TestCase):
         self.assertIsInstance(asset, Asset)
 
     def test_e_wallet_with_initial_balance(self):
+        provider = Provider.objects.create(name='Webmoney')
         asset = EWalletAsset.objects.create(
             user=self.user,
             name='Webmoney',
             type=AssetType.E_WALLET,
             currency='RUB',
-            provider_name='Webmoney'
+            provider=provider
         )
         Transaction.objects.create(
             user=self.user,

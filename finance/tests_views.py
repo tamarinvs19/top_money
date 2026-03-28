@@ -1335,7 +1335,7 @@ class EWalletFormFieldsTest(TestCase):
     def test_e_wallet_form_shows_provider_name_field(self):
         response = self.client.get(reverse('asset_add'))
         self.assertContains(response, 'id="eWalletFields"')
-        self.assertContains(response, 'Provider Name')
+        self.assertContains(response, 'Provider')
 
     def test_e_wallet_type_in_asset_types(self):
         response = self.client.get(reverse('asset_add'))
@@ -1348,6 +1348,8 @@ class EWalletViewsTest(TestCase):
         self.client = Client()
         self.user = User.objects.create_user(username='testuser', password='testpass123')
         self.client.login(username='testuser', password='testpass123')
+        self.provider = Provider.objects.create(name='Yandex')
+        self.provider_qiwi = Provider.objects.create(name='Qiwi')
 
     def test_create_e_wallet(self):
         response = self.client.post(reverse('asset_add'), {
@@ -1355,7 +1357,7 @@ class EWalletViewsTest(TestCase):
             'type': AssetType.E_WALLET,
             'currency': 'RUB',
             'balance': '10000',
-            'provider_name': 'Yandex'
+            'provider': self.provider.pk
         })
         self.assertRedirects(response, reverse('assets'))
         asset = EWalletAsset.objects.get(name='Yandex Money')
@@ -1369,7 +1371,7 @@ class EWalletViewsTest(TestCase):
             name='Qiwi Wallet',
             type=AssetType.E_WALLET,
             currency='RUB',
-            provider_name='Qiwi'
+            provider=self.provider_qiwi
         )
         url = reverse('asset_edit', args=[asset.pk])
         response = self.client.post(url, {
@@ -1377,25 +1379,26 @@ class EWalletViewsTest(TestCase):
             'type': AssetType.E_WALLET,
             'currency': 'USD',
             'balance': '5000',
-            'provider_name': 'Qiwi Inc',
+            'provider': self.provider_qiwi.pk,
             'is_active': 'on',
         })
         asset.refresh_from_db()
         self.assertEqual(asset.name, 'Updated Qiwi')
-        self.assertEqual(asset.provider_name, 'Qiwi Inc')
+        self.assertEqual(asset.provider_name, 'Qiwi')
         self.assertEqual(asset.currency, 'USD')
 
     def test_e_wallet_edit_page_has_provider_name(self):
+        provider = Provider.objects.create(name='Test Provider')
         asset = EWalletAsset.objects.create(
             user=self.user,
             name='Test Wallet',
             type=AssetType.E_WALLET,
             currency='RUB',
-            provider_name='Test Provider'
+            provider=provider
         )
         url = reverse('asset_edit', args=[asset.pk])
         response = self.client.get(url)
-        self.assertContains(response, 'provider_name')
+        self.assertContains(response, 'provider')
         self.assertContains(response, 'Test Provider')
 
 
@@ -1457,7 +1460,7 @@ class ProviderViewsTest(TestCase):
             name='My Qiwi',
             type=AssetType.E_WALLET,
             currency='RUB',
-            provider_name='Qiwi'
+            provider=provider
         )
         url = reverse('provider_view', args=[provider.pk])
         response = self.client.get(url)
@@ -1472,14 +1475,14 @@ class ProviderViewsTest(TestCase):
             name='Personal Wallet',
             type=AssetType.E_WALLET,
             currency='RUB',
-            provider_name='YooMoney'
+            provider=provider
         )
         wallet2 = EWalletAsset.objects.create(
             user=self.user,
             name='Business Wallet',
             type=AssetType.E_WALLET,
             currency='USD',
-            provider_name='YooMoney'
+            provider=provider
         )
         url = reverse('provider_view', args=[provider.pk])
         response = self.client.get(url)

@@ -126,8 +126,13 @@
 
           <div id="eWalletFields" class="asset-fields" style="display: none;">
             <div class="mb-3">
-              <label class="form-label">Provider Name</label>
-              <input type="text" name="provider_name" class="form-control" value="{{ asset.provider_name|default:'' }}" />
+              <label class="form-label">Provider</label>
+              <select name="provider" class="form-select">
+                <option value="">-- Select Provider --</option>
+                {% for provider in providers %}
+                <option value="{{ provider.pk }}" {% if asset.provider_id == provider.pk %}selected{% endif %}>{{ provider.name }}</option>
+                {% endfor %}
+              </select>
             </div>
           </div>
 

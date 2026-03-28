@@ -324,7 +324,7 @@ def asset_add(request):
                 name=name,
                 type=asset_type,
                 currency=currency,
-                provider_name=request.POST.get('provider_name', ''),
+                provider_id=request.POST.get('provider') or None,
             )
         else:
             asset = Asset.objects.create(
@@ -352,6 +352,7 @@ def asset_add(request):
         'asset_types': AssetType.choices,
         'brokerage_account_types': BrokerageAccountType.choices,
         'banks': Bank.objects.all(),
+        'providers': Provider.objects.all(),
     })
 
 
@@ -407,7 +408,7 @@ def asset_edit(request, pk):
             asset.account_number = request.POST.get('account_number', '')
             asset.brokerage_account_type = request.POST.get('brokerage_account_type', '')
         elif asset.type == AssetType.E_WALLET:
-            asset.provider_name = request.POST.get('provider_name', '')
+            asset.provider_id = request.POST.get('provider') or None
         
         if new_balance != current_balance:
             balance_diff = new_balance - current_balance
@@ -442,6 +443,7 @@ def asset_edit(request, pk):
         'asset_types': AssetType.choices,
         'brokerage_account_types': BrokerageAccountType.choices,
         'banks': Bank.objects.all(),
+        'providers': Provider.objects.all(),
     })
 
 
@@ -911,5 +913,5 @@ def provider_edit(request, pk):
 @login_required
 def provider_view(request, pk):
     provider = get_object_or_404(Provider, pk=pk)
-    assets = EWalletAsset.objects.filter(provider_name=provider.name, user=request.user)
+    assets = EWalletAsset.objects.filter(provider=provider, user=request.user)
     return render(request, 'provider_view.html', {'provider': provider, 'assets': assets})

@@ -55,11 +55,19 @@
             {% else %}
             <span class="badge bg-secondary"><i class="bi bi-bank"></i></span>
             {% endif %}
+          {% elif asset.provider %}
+            {% if asset.provider.image %}
+            <img src="{{ asset.provider.image.url }}" alt="{{ asset.provider.name }}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 4px;">
+            {% else %}
+            <span class="badge bg-secondary"><i class="bi bi-wallet2"></i></span>
+            {% endif %}
           {% endif %}
           <div>
             <strong>{{ asset.name }}</strong>
             {% if asset.bank_name %}
             <span class="text-muted ms-1">({{ asset.bank_name }})</span>
+            {% elif asset.provider_name %}
+            <span class="text-muted ms-1">({{ asset.provider_name }})</span>
             {% endif %}
           </div>
         </div>
