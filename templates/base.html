@@ -60,6 +60,7 @@
             <a class="nav-link" href="{% url 'statistics' %}">Statistics</a>
             <a class="nav-link" href="{% url 'assets' %}">Assets</a>
             <a class="nav-link" href="{% url 'banks' %}">Banks</a>
+            <a class="nav-link" href="{% url 'cashback_overview' %}">Cashback</a>
             <a class="nav-link" href="{% url 'profile' %}">Profile</a>
           </div>
         </div>
@@ -92,6 +93,12 @@
             <a class="nav-link py-1 d-block" href="{% url 'banks' %}">
               <i class="bi bi-bank d-block" style="font-size: 1rem;"></i>
               <small style="font-size: 0.6rem;">Banks</small>
+            </a>
+          </div>
+          <div class="col-2">
+            <a class="nav-link py-1 d-block" href="{% url 'cashback_overview' %}">
+              <i class="bi bi-cash d-block" style="font-size: 1rem;"></i>
+              <small style="font-size: 0.6rem;">Cashback</small>
             </a>
           </div>
           <div class="col-2">

@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Edit Cashback - Finance Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  <h2>Edit Cashback: {{ bank.name }} - {{ cashback_month.year }}-{{ cashback_month.month|stringformat:"02d" }}</h2>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="common_limit" class="form-label">Common monthly limit (₽)</label>
+        <input type="number" class="form-control" id="common_limit" name="common_limit" step="0.01" value="{{ cashback_month.common_limit|default:'' }}" placeholder="Leave empty for no limit">
+      </div>
+      <div class="mb-3">
+        <label for="max_categories" class="form-label">Max categories to select</label>
+        <input type="number" class="form-control" id="max_categories" name="max_categories" value="{{ cashback_month.max_categories|default:bank.cashback_categories_limit }}" min="1">
+        <small class="text-muted">Default from bank: {{ bank.cashback_categories_limit }}</small>
+      </div>
+    </div>
+  </div>
+  
+  <button type="submit" class="btn btn-primary">Save</button>
+  <a href="{% url 'bank_view' bank.pk %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+{% endblock %}

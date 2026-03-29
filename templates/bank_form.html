@@ -13,6 +13,11 @@
             <label class="form-label">Bank Name</label>
             <input type="text" name="name" class="form-control" value="{{ bank.name|default:'' }}" required />
           </div>
+          <div class="mb-3">
+            <label class="form-label">Cashback Categories Limit</label>
+            <input type="number" name="cashback_categories_limit" class="form-control" value="{{ bank.cashback_categories_limit|default:3 }}" min="1" />
+            <small class="text-muted">Number of cashback categories user can select for this bank</small>
+          </div>
           {% if bank.image %}
           <div class="mb-3">
             <label class="form-label">Bank Logo</label>

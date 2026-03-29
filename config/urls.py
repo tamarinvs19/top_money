@@ -33,6 +33,13 @@ urlpatterns = [
     path('bank/add/', views.bank_add, name='bank_add'),
     path('bank/<int:pk>/edit/', views.bank_edit, name='bank_edit'),
     path('bank/<int:pk>/', views.bank_view, name='bank_view'),
+    path('bank/<int:pk>/cashback/<int:year>/<int:month>/add/', views.add_cashback_categories, name='add_cashback_categories'),
+    path('bank/<int:pk>/cashback/<int:year>/<int:month>/select/<int:category_id>/', views.select_cashback_category, name='select_cashback_category'),
+    path('bank/<int:pk>/cashback/<int:year>/<int:month>/edit/', views.bank_cashback_edit, name='bank_cashback_edit'),
+    
+    path('cashback/', views.cashback_overview, name='cashback_overview'),
+    path('cashback/<int:year>/<int:month>/', views.cashback_overview, name='cashback_overview_month'),
+    path('cashback/<int:year>/<int:month>/select/<int:bank_id>/', views.cashback_overview_select, name='cashback_overview_select'),
     
     path('provider/add/', views.provider_add, name='provider_add'),
     path('provider/<int:pk>/edit/', views.provider_edit, name='provider_edit'),

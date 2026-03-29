@@ -13,7 +13,7 @@ from django import forms
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
 from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, BANKS, BankAsset, Provider, PROVIDERS
-from finance.models import InvitationCode
+from finance.models import InvitationCode, BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CASHBACK_CATEGORIES
 from finance.exchange_rate import ExchangeRateService
 
 
@@ -874,6 +874,7 @@ def bank_edit(request, pk):
         bank.name = request.POST.get('name')
         if request.FILES.get('image'):
             bank.image = request.FILES.get('image')
+        bank.cashback_categories_limit = int(request.POST.get('cashback_categories_limit', 3))
         bank.save()
         return redirect('banks')
     return render(request, 'bank_form.html', {'bank': bank})
@@ -885,7 +886,126 @@ def bank_view(request, pk):
     assets = []
     for asset_class in [DebitCardAsset, CreditCardAsset, DepositAsset, SavingAccount]:
         assets.extend(asset_class.objects.filter(bank=bank, user=request.user))
-    return render(request, 'bank_view.html', {'bank': bank, 'assets': assets})
+
+    today = timezone.now()
+    current_year = today.year
+    current_month = today.month
+
+    if current_month == 12:
+        next_year = current_year + 1
+        next_month = 1
+    else:
+        next_year = current_year
+        next_month = current_month + 1
+
+    current_month_obj = BankCashbackMonth.objects.filter(bank=bank, year=current_year, month=current_month).first()
+    next_month_obj = BankCashbackMonth.objects.filter(bank=bank, year=next_year, month=next_month).first()
+
+    def get_month_categories(month_obj):
+        if not month_obj:
+            return None, [], []
+        selections = BankCashbackSelection.objects.filter(bank_cashback_month=month_obj, is_selected=True).select_related('bank_cashback_category')
+        all_categories = BankCashbackCategory.objects.filter(bank=bank)
+        selected_ids = set(selections.values_list('bank_cashback_category_id', flat=True))
+        selected = [s.bank_cashback_category for s in selections]
+        available = [cat for cat in all_categories if cat.id not in selected_ids]
+        return month_obj, selected, available
+
+    current_month_obj, current_selected, current_available = get_month_categories(current_month_obj)
+    next_month_obj, next_selected, next_available = get_month_categories(next_month_obj)
+
+    return render(request, 'bank_view.html', {
+        'bank': bank,
+        'assets': assets,
+        'current_year': current_year,
+        'current_month': current_month,
+        'next_year': next_year,
+        'next_month': next_month,
+        'current_month_obj': current_month_obj,
+        'next_month_obj': next_month_obj,
+        'current_selected': current_selected,
+        'current_available': current_available,
+        'next_selected': next_selected,
+        'next_available': next_available,
+    })
+
+
+@login_required
+def add_cashback_categories(request, pk, year, month):
+    bank = get_object_or_404(Bank, pk=pk)
+
+    cashback_month, created = BankCashbackMonth.objects.get_or_create(
+        bank=bank,
+        year=int(year),
+        month=int(month),
+        defaults={'common_limit': None, 'max_categories': None}
+    )
+
+    for category_code, category_name in CASHBACK_CATEGORIES:
+        BankCashbackCategory.objects.get_or_create(
+            bank=bank,
+            category=category_code,
+            defaults={
+                'percent': Decimal('1.0'),
+                'limit': None
+            }
+        )
+
+    return redirect('bank_view', pk=pk)
+
+
+@login_required
+def select_cashback_category(request, pk, year, month, category_id):
+    bank = get_object_or_404(Bank, pk=pk)
+    cashback_month = get_object_or_404(BankCashbackMonth, bank=bank, year=int(year), month=int(month))
+    category = get_object_or_404(BankCashbackCategory, pk=category_id, bank=bank)
+
+    selection, created = BankCashbackSelection.objects.get_or_create(
+        bank_cashback_month=cashback_month,
+        bank_cashback_category=category,
+        defaults={'is_selected': True}
+    )
+
+    selected_count = BankCashbackSelection.objects.filter(
+        bank_cashback_month=cashback_month,
+        is_selected=True
+    ).count()
+
+    max_categories = cashback_month.get_max_categories()
+
+    if created:
+        if selected_count > max_categories:
+            selection.is_selected = False
+            selection.save()
+        return redirect('bank_view', pk=pk)
+
+    if selection.is_selected:
+        selection.is_selected = False
+        selection.save()
+    elif selected_count < max_categories:
+        selection.is_selected = True
+        selection.save()
+
+    return redirect('bank_view', pk=pk)
+
+
+@login_required
+def bank_cashback_edit(request, pk, year, month):
+    bank = get_object_or_404(Bank, pk=pk)
+    cashback_month = get_object_or_404(BankCashbackMonth, bank=bank, year=int(year), month=int(month))
+
+    if request.method == 'POST':
+        common_limit = request.POST.get('common_limit')
+        cashback_month.common_limit = Decimal(common_limit) if common_limit else None
+        max_categories = request.POST.get('max_categories')
+        cashback_month.max_categories = int(max_categories) if max_categories else None
+        cashback_month.save()
+        return redirect('bank_view', pk=pk)
+
+    return render(request, 'bank_cashback_edit.html', {
+        'bank': bank,
+        'cashback_month': cashback_month,
+    })
 
 
 @login_required
@@ -915,3 +1035,93 @@ def provider_view(request, pk):
     provider = get_object_or_404(Provider, pk=pk)
     assets = EWalletAsset.objects.filter(provider=provider, user=request.user)
     return render(request, 'provider_view.html', {'provider': provider, 'assets': assets})
+
+
+@login_required
+def cashback_overview(request, year=None, month=None):
+    today = timezone.now()
+    if year is None:
+        year = today.year
+    if month is None:
+        month = today.month
+
+    year = int(year)
+    month = int(month)
+
+    if month == 1:
+        prev_year = year - 1
+        prev_month = 12
+    else:
+        prev_year = year
+        prev_month = month - 1
+
+    if month == 12:
+        next_year = year + 1
+        next_month = 1
+    else:
+        next_year = year
+        next_month = month + 1
+
+    banks_with_cashback = []
+    all_banks = Bank.objects.all()
+
+    for bank in all_banks:
+        cashback_month = BankCashbackMonth.objects.filter(bank=bank, year=year, month=month).first()
+        if cashback_month:
+            selections = BankCashbackSelection.objects.filter(
+                bank_cashback_month=cashback_month,
+                is_selected=True
+            ).select_related('bank_cashback_category')
+            categories = [s.bank_cashback_category for s in selections]
+            banks_with_cashback.append({
+                'bank': bank,
+                'cashback_month': cashback_month,
+                'categories': categories,
+                'selected_count': len(categories),
+                'max_categories': cashback_month.get_max_categories(),
+            })
+
+    return render(request, 'cashback_overview.html', {
+        'year': year,
+        'month': month,
+        'prev_year': prev_year,
+        'prev_month': prev_month,
+        'next_year': next_year,
+        'next_month': next_month,
+        'banks_with_cashback': banks_with_cashback,
+    })
+
+
+@login_required
+def cashback_overview_select(request, year, month, bank_id):
+    bank = get_object_or_404(Bank, pk=bank_id)
+    cashback_month = get_object_or_404(BankCashbackMonth, bank=bank, year=int(year), month=int(month))
+    category_id = request.POST.get('category_id')
+
+    if category_id:
+        category = get_object_or_404(BankCashbackCategory, pk=category_id, bank=bank)
+        selection, created = BankCashbackSelection.objects.get_or_create(
+            bank_cashback_month=cashback_month,
+            bank_cashback_category=category,
+            defaults={'is_selected': True}
+        )
+
+        selected_count = BankCashbackSelection.objects.filter(
+            bank_cashback_month=cashback_month,
+            is_selected=True
+        ).count()
+
+        max_categories = cashback_month.get_max_categories()
+
+        if created:
+            if selected_count > max_categories:
+                selection.is_selected = False
+                selection.save()
+        elif selection.is_selected:
+            selection.is_selected = False
+            selection.save()
+        elif selected_count < max_categories:
+            selection.is_selected = True
+            selection.save()
+
+    return redirect('cashback_overview', year=year, month=month)

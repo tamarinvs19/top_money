@@ -10,12 +10,90 @@ from django.utils import timezone
 class Bank(models.Model):
     name = models.CharField(max_length=100, unique=True)
     image = models.ImageField(upload_to='banks/', blank=True, null=True)
+    cashback_categories_limit = models.PositiveIntegerField(default=3, help_text='Number of cashback categories user can select for this bank')
 
     class Meta:
         ordering = ['name']
 
     def __str__(self):
         return self.name
+
+
+CASHBACK_CATEGORIES = [
+    ('PRODUCTS', 'Products'),
+    ('CAFE_AND_RESTAURANTS', 'Cafe and restaurants'),
+    ('TRANSPORT', 'Transport'),
+    ('HCS', 'HCS'),
+    ('HOUSEHOLD', 'Household'),
+    ('PERSONAL', 'Personal'),
+    ('LEISURE', 'Leisure'),
+    ('ENTERTAINMENT', 'Entertainment'),
+    ('CLOTHING_AND_SHOES', 'Clothing and shoes'),
+    ('SPORT', 'Sport'),
+    ('HEALTH_AND_BEAUTY', 'Health and beauty'),
+    ('SUBSCRIPTIONS', 'Subscriptions'),
+    ('TAXES_AND_PENALTIES', 'Taxes and penalties'),
+    ('LEARNING', 'Learning'),
+    ('GIFTS', 'Gifts'),
+    ('TECHNIQUE', 'Technique'),
+    ('TRAVELING', 'Traveling'),
+    ('REALTY', 'Realty'),
+    ('ONLINE_STORES', 'Online stores'),
+    ('APPS_AND_GAMES', 'Apps and games'),
+    ('OTHER', 'Other'),
+]
+
+
+class BankCashbackCategory(models.Model):
+    bank = models.ForeignKey(Bank, on_delete=models.CASCADE, related_name='cashback_categories')
+    category = models.CharField(max_length=30, choices=CASHBACK_CATEGORIES)
+    percent = models.DecimalField(max_digits=5, decimal_places=2)
+    limit = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True, help_text='Monthly limit for this category')
+
+    class Meta:
+        unique_together = ('bank', 'category')
+        ordering = ['category']
+
+    def __str__(self):
+        return f"{self.bank.name} - {self.get_category_display()}: {self.percent}%"
+
+
+class BankCashbackMonth(models.Model):
+    bank = models.ForeignKey(Bank, on_delete=models.CASCADE, related_name='cashback_months')
+    year = models.PositiveIntegerField()
+    month = models.PositiveIntegerField()
+    common_limit = models.DecimalField(max_digits=15, decimal_places=2, blank=True, null=True, help_text='Common monthly limit for this bank')
+    max_categories = models.PositiveIntegerField(default=None, blank=True, null=True, help_text='Max categories to select (defaults to bank limit)')
+
+    class Meta:
+        unique_together = ('bank', 'year', 'month')
+        ordering = ['-year', '-month']
+
+    def __str__(self):
+        return f"{self.bank.name} - {self.year}-{self.month:02d}"
+
+    @property
+    def categories(self):
+        return BankCashbackCategory.objects.filter(bank=self.bank)
+
+    @property
+    def user_selections(self):
+        return BankCashbackSelection.objects.filter(bank_cashback_month=self)
+
+    def get_max_categories(self):
+        return self.max_categories if self.max_categories else self.bank.cashback_categories_limit
+
+
+class BankCashbackSelection(models.Model):
+    bank_cashback_month = models.ForeignKey(BankCashbackMonth, on_delete=models.CASCADE, related_name='selections')
+    bank_cashback_category = models.ForeignKey(BankCashbackCategory, on_delete=models.CASCADE)
+    is_selected = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('bank_cashback_month', 'bank_cashback_category')
+
+    def __str__(self):
+        return f"{self.bank_cashback_month} - {self.bank_cashback_category.get_category_display()}: {'selected' if self.is_selected else 'not selected'}"
 
 
 BANKS = [
