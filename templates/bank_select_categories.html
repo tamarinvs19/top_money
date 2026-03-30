@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Select Categories - {{ bank.name }} - Finance Manager{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+  {% if bank.image %}
+  <img src="{% static bank.image %}" alt="{{ bank.name }}" style="width: 50px; height: 50px; object-fit: contain; margin-right: 15px;">
+  {% else %}
+  <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-right: 15px;">
+    <i class="bi bi-bank" style="font-size: 24px;"></i>
+  </div>
+  {% endif %}
+  <div>
+    <h2 class="mb-0">{{ bank.name }}</h2>
+    <p class="text-muted mb-0">Select cashback categories for {{ year }}-{{ month|stringformat:"02d" }}</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-primary text-white">
+    <h5 class="mb-0">
+      <i class="bi bi-check2-square"></i> Step 2: Select Monthly Categories
+    </h5>
+  </div>
+  <div class="card-body">
+    {% if cashback_month.common_limit %}
+    <p><strong>Common limit:</strong> {{ cashback_month.common_limit|floatformat:2 }} ₽</p>
+    {% endif %}
+    <p><strong>Max categories to select:</strong> {{ max_categories }}</p>
+    <p><strong>Selected:</strong> <span id="selectedCount">{{ selected_count }}</span> / {{ max_categories }}</p>
+    
+    <form method="post" action="{% url 'bank_select_categories' bank.pk year month %}">
+      {% csrf_token %}
+      
+      <div class="row">
+        {% for item in categories %}
+        <div class="col-md-6 col-lg-4 mb-3">
+          <div class="card h-100 {% if item.is_selected %}border-success{% endif %}">
+            <div class="card-body">
+              <div class="form-check">
+                <input type="checkbox" 
+                       name="selected_categories[]" 
+                       value="{{ item.bank_category.pk }}" 
+                       class="form-check-input category-select" 
+                       id="category_{{ item.bank_category.pk }}"
+                       {% if item.is_selected %}checked{% endif %}>
+                <label class="form-check-label w-100" for="category_{{ item.bank_category.pk }}">
+                  <div class="d-flex align-items-center mb-2">
+                    {% if item.bank_category.category.image %}
+                    <img src="{% static item.bank_category.category.image %}" alt="{{ item.bank_category.category.name }}" style="width: 32px; height: 32px; margin-right: 10px;">
+                    {% endif %}
+                    <strong>{{ item.bank_category.category.name }}</strong>
+                  </div>
+                  <div class="text-muted small">
+                    <span class="badge bg-secondary">{{ item.bank_category.percent }}%</span>
+                    {% if item.bank_category.limit %}
+                    <span class="badge bg-info">max {{ item.bank_category.limit|floatformat:0 }} ₽</span>
+                    {% endif %}
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      
+      <div class="mt-4 d-flex justify-content-between">
+        <a href="{% url 'bank_view' bank.pk %}" class="btn btn-secondary">
+          <i class="bi bi-arrow-left"></i> Back
+        </a>
+        <button type="submit" class="btn btn-success" id="saveBtn">
+          <i class="bi bi-save"></i> Save Selection
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const checkboxes = document.querySelectorAll('.category-select');
+  const selectedCountEl = document.getElementById('selectedCount');
+  const maxCategories = {{ max_categories }};
+  
+  function updateSelectedCount() {
+    const checked = document.querySelectorAll('.category-select:checked').length;
+    selectedCountEl.textContent = checked;
+    
+    // Update card styling
+    checkboxes.forEach(function(cb) {
+      const card = cb.closest('.card');
+      if (cb.checked) {
+        card.classList.add('border-success');
+      } else {
+        card.classList.remove('border-success');
+      }
+    });
+    
+    // Disable unchecked if at max
+    if (checked >= maxCategories) {
+      checkboxes.forEach(function(cb) {
+        if (!cb.checked) {
+          cb.disabled = true;
+          cb.closest('.card').classList.add('opacity-50');
+        }
+      });
+    } else {
+      checkboxes.forEach(function(cb) {
+        cb.disabled = false;
+        cb.closest('.card').classList.remove('opacity-50');
+      });
+    }
+  }
+  
+  checkboxes.forEach(function(cb) {
+    cb.addEventListener('change', updateSelectedCount);
+  });
+  
+  updateSelectedCount();
+});
+</script>
+{% endblock %}

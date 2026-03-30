@@ -13,8 +13,20 @@
   <a href="{% url 'cashback_overview_month' next_year next_month %}" class="btn btn-outline-secondary">{{ next_year }}-{{ next_month|stringformat:"02d" }} &rarr;</a>
 </div>
 
+<!-- View toggle -->
+<div class="mb-3">
+  <div class="btn-group" role="group" aria-label="View mode">
+    <button type="button" class="btn btn-outline-primary active" id="showSelectedBtn">
+      <i class="bi bi-check-circle"></i> Show Selected
+    </button>
+    <button type="button" class="btn btn-outline-primary" id="showAllBtn">
+      <i class="bi bi-list-ul"></i> Show All
+    </button>
+  </div>
+</div>
+
 {% if banks_with_cashback %}
-<div class="row">
+<div class="row" id="banksContainer">
   {% for item in banks_with_cashback %}
   <div class="col-md-6 mb-3">
     <div class="card">
@@ -34,18 +46,83 @@
         <p><strong>Common limit:</strong> No limit</p>
         {% endif %}
         
-        {% if item.categories %}
-        <ul class="list-group">
-          {% for cat in item.categories %}
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ cat.get_category_display }}
-            <span class="badge bg-primary">{{ cat.percent }}%{% if cat.limit %} (max {{ cat.limit|floatformat:0 }}){% endif %}</span>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="text-muted">No categories selected for this month</p>
-        {% endif %}
+        <!-- Selected categories (always visible) -->
+        <div class="selected-view">
+          {% if item.categories %}
+          <h6>Selected categories</h6>
+          <ul class="list-group">
+            {% for cat in item.categories %}
+            <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+              <div class="d-flex align-items-center">
+                {% if cat.category.image %}
+                <img src="{% static cat.category.image %}" alt="{{ cat.category.name }}" style="width: 24px; height: 24px; margin-right: 8px;">
+                {% endif %}
+                {{ cat.category.name }}
+              </div>
+              <span class="badge bg-primary">{{ cat.percent }}%</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="text-muted">No categories selected for this month</p>
+          {% endif %}
+        </div>
+        
+        <!-- All categories view (hidden by default) -->
+        <div class="all-view" style="display: none;">
+          <form method="post" action="{% url 'cashback_overview_save' year month item.bank.pk %}">
+            {% csrf_token %}
+            
+            {% if item.available or item.categories %}
+            <h6>All categories</h6>
+            <ul class="list-group mb-3">
+              {% for cat in item.categories %}
+              <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                <div class="form-check d-flex align-items-center">
+                  <input type="checkbox" 
+                         name="selected_ids[]" 
+                         value="{{ cat.pk }}" 
+                         class="form-check-input me-2 category-toggle"
+                         checked>
+                  <div class="d-flex align-items-center">
+                    {% if cat.category.image %}
+                    <img src="{% static cat.category.image %}" alt="{{ cat.category.name }}" style="width: 24px; height: 24px; margin-right: 8px;">
+                    {% endif %}
+                    {{ cat.category.name }}
+                  </div>
+                </div>
+                <span class="badge bg-secondary">{{ cat.percent }}%</span>
+              </li>
+              {% endfor %}
+              {% for cat in item.available %}
+              <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                <div class="form-check d-flex align-items-center">
+                  <input type="checkbox" 
+                         name="selected_ids[]" 
+                         value="{{ cat.pk }}" 
+                         class="form-check-input me-2 category-toggle">
+                  <div class="d-flex align-items-center">
+                    {% if cat.category.image %}
+                    <img src="{% static cat.category.image %}" alt="{{ cat.category.name }}" style="width: 24px; height: 24px; margin-right: 8px;">
+                    {% endif %}
+                    {{ cat.category.name }}
+                  </div>
+                </div>
+                <span class="badge bg-secondary">{{ cat.percent }}%</span>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted">No categories configured. Go to bank page to add categories.</p>
+            {% endif %}
+            
+            {% if item.available or item.categories %}
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-save"></i> Save
+            </button>
+            {% endif %}
+          </form>
+        </div>
       </div>
     </div>
   </div>
@@ -58,4 +135,45 @@
 </div>
 {% endif %}
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const showSelectedBtn = document.getElementById('showSelectedBtn');
+  const showAllBtn = document.getElementById('showAllBtn');
+  const selectedViews = document.querySelectorAll('.selected-view');
+  const allViews = document.querySelectorAll('.all-view');
+  
+  showSelectedBtn.addEventListener('click', function() {
+    showSelectedBtn.classList.add('active');
+    showAllBtn.classList.remove('active');
+    selectedViews.forEach(el => el.style.display = 'block');
+    allViews.forEach(el => el.style.display = 'none');
+  });
+  
+  showAllBtn.addEventListener('click', function() {
+    showAllBtn.classList.add('active');
+    showSelectedBtn.classList.remove('active');
+    selectedViews.forEach(el => el.style.display = 'none');
+    allViews.forEach(el => el.style.display = 'block');
+  });
+  
+  // Limit checkbox selection based on max_categories
+  document.querySelectorAll('.category-toggle').forEach(function(checkbox) {
+    checkbox.addEventListener('change', function() {
+      const card = this.closest('.card');
+      const maxCategories = parseInt(card.querySelector('.badge.bg-info').textContent.split('/')[1]);
+      const checkedCount = card.querySelectorAll('.category-toggle:checked').length;
+      
+      if (checkedCount >= maxCategories) {
+        card.querySelectorAll('.category-toggle:not(:checked)').forEach(function(cb) {
+          cb.disabled = true;
+        });
+      } else {
+        card.querySelectorAll('.category-toggle').forEach(function(cb) {
+          cb.disabled = false;
+        });
+      }
+    });
+  });
+});
+</script>
 {% endblock %}

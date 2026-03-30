@@ -36,9 +36,14 @@ urlpatterns = [
     path('bank/<int:pk>/cashback/<int:year>/<int:month>/add/', views.add_cashback_categories, name='add_cashback_categories'),
     path('bank/<int:pk>/cashback/<int:year>/<int:month>/select/<int:category_id>/', views.select_cashback_category, name='select_cashback_category'),
     path('bank/<int:pk>/cashback/<int:year>/<int:month>/edit/', views.bank_cashback_edit, name='bank_cashback_edit'),
+    path('bank/<int:pk>/cashback/<int:year>/<int:month>/save/', views.bank_save_categories, name='bank_save_categories'),
+    path('bank/<int:pk>/cashback/<int:year>/<int:month>/choose/', views.bank_select_categories, name='bank_select_categories'),
+    path('bank/<int:pk>/cashback/<int:year>/<int:month>/selection/', views.bank_save_month_selection, name='bank_save_month_selection'),
+    path('bank/<int:pk>/add-category/', views.bank_add_new_category, name='bank_add_new_category'),
     
     path('cashback/', views.cashback_overview, name='cashback_overview'),
     path('cashback/<int:year>/<int:month>/', views.cashback_overview, name='cashback_overview_month'),
+    path('cashback/<int:year>/<int:month>/save/<int:pk>/', views.cashback_overview_save, name='cashback_overview_save'),
     path('cashback/<int:year>/<int:month>/select/<int:bank_id>/', views.cashback_overview_select, name='cashback_overview_select'),
     
     path('provider/add/', views.provider_add, name='provider_add'),

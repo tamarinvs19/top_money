@@ -1522,10 +1522,11 @@ class BankCashbackModelTest(TestCase):
         self.assertEqual(bank.cashback_categories_limit, 3)
 
     def test_create_cashback_category(self):
-        from finance.models import BankCashbackCategory, CASHBACK_CATEGORIES
+        from finance.models import BankCashbackCategory, CashbackCategory
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0'),
             limit=Decimal('3000.00')
         )
@@ -1557,10 +1558,11 @@ class BankCashbackModelTest(TestCase):
         self.assertEqual(cashback_month.get_max_categories(), 5)
 
     def test_cashback_selection(self):
-        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         cashback_month = BankCashbackMonth.objects.create(
@@ -1576,16 +1578,17 @@ class BankCashbackModelTest(TestCase):
         self.assertTrue(selection.is_selected)
 
     def test_unique_cashback_category_per_bank(self):
-        from finance.models import BankCashbackCategory
+        from finance.models import BankCashbackCategory, CashbackCategory
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         with self.assertRaises(Exception):
             BankCashbackCategory.objects.create(
                 bank=self.bank,
-                category='PRODUCTS',
+                category=cashback_cat,
                 percent=Decimal('3.0')
             )
 
@@ -1604,10 +1607,11 @@ class BankCashbackModelTest(TestCase):
             )
 
     def test_cashback_category_str(self):
-        from finance.models import BankCashbackCategory
+        from finance.models import BankCashbackCategory, CashbackCategory
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         self.assertIn('Sberbank', str(category))
@@ -1624,30 +1628,36 @@ class BankCashbackViewTest(TestCase):
         from finance.models import CASHBACK_CATEGORIES
         response = self.client.get(f'/bank/{self.bank.pk}/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Add all categories')
+        self.assertContains(response, 'Show all categories')
         self.assertContains(response, str(self.bank.cashback_categories_limit))
 
     def test_add_cashback_categories(self):
-        from finance.models import CASHBACK_CATEGORIES
+        from finance.models import CashbackCategory
         today = timezone.now()
+        
+        # Create some test cashback categories
+        CashbackCategory.objects.get_or_create(name='Products')
+        CashbackCategory.objects.get_or_create(name='Transport')
+        
         response = self.client.get(f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/add/')
         self.assertEqual(response.status_code, 302)
         
         from finance.models import BankCashbackCategory, BankCashbackMonth
         categories = BankCashbackCategory.objects.filter(bank=self.bank)
-        self.assertEqual(categories.count(), len(CASHBACK_CATEGORIES))
+        self.assertEqual(categories.count(), CashbackCategory.objects.count())
         
         month_obj = BankCashbackMonth.objects.filter(bank=self.bank, year=today.year, month=today.month)
         self.assertTrue(month_obj.exists())
 
     def test_select_cashback_category(self):
-        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CASHBACK_CATEGORIES
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory
         today = timezone.now()
         
         BankCashbackMonth.objects.create(bank=self.bank, year=today.year, month=today.month)
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         
@@ -1662,13 +1672,14 @@ class BankCashbackViewTest(TestCase):
         self.assertTrue(selection.is_selected)
 
     def test_select_cashback_category_first_time(self):
-        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory
         today = timezone.now()
         
         BankCashbackMonth.objects.create(bank=self.bank, year=today.year, month=today.month)
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         
@@ -1687,13 +1698,14 @@ class BankCashbackViewTest(TestCase):
         self.assertTrue(selection.is_selected)
 
     def test_deselect_cashback_category(self):
-        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory
         today = timezone.now()
         
         month = BankCashbackMonth.objects.create(bank=self.bank, year=today.year, month=today.month)
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         BankCashbackSelection.objects.create(
@@ -1712,14 +1724,14 @@ class BankCashbackViewTest(TestCase):
         self.assertFalse(selection.is_selected)
 
     def test_cannot_select_more_than_limit(self):
-        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory
         today = timezone.now()
         
         month = BankCashbackMonth.objects.create(bank=self.bank, year=today.year, month=today.month, max_categories=2)
         
-        cat1 = BankCashbackCategory.objects.create(bank=self.bank, category='PRODUCTS', percent=Decimal('5.0'))
-        cat2 = BankCashbackCategory.objects.create(bank=self.bank, category='CAFE_AND_RESTAURANTS', percent=Decimal('3.0'))
-        cat3 = BankCashbackCategory.objects.create(bank=self.bank, category='TRANSPORT', percent=Decimal('2.0'))
+        cat1 = BankCashbackCategory.objects.create(bank=self.bank, category=CashbackCategory.objects.create(name='Products'), percent=Decimal('5.0'))
+        cat2 = BankCashbackCategory.objects.create(bank=self.bank, category=CashbackCategory.objects.create(name='Cafe and restaurants'), percent=Decimal('3.0'))
+        cat3 = BankCashbackCategory.objects.create(bank=self.bank, category=CashbackCategory.objects.create(name='Transport'), percent=Decimal('2.0'))
         
         BankCashbackSelection.objects.create(bank_cashback_month=month, bank_cashback_category=cat1, is_selected=True)
         BankCashbackSelection.objects.create(bank_cashback_month=month, bank_cashback_category=cat2, is_selected=True)
@@ -1731,13 +1743,14 @@ class BankCashbackViewTest(TestCase):
         self.assertFalse(selection.is_selected)
 
     def test_bank_view_with_cashback(self):
-        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory
         today = timezone.now()
         
         month = BankCashbackMonth.objects.create(bank=self.bank, year=today.year, month=today.month)
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         BankCashbackSelection.objects.create(
@@ -1785,7 +1798,7 @@ class CashbackOverviewViewTest(TestCase):
         self.assertContains(response, 'No cashback data')
 
     def test_cashback_overview_with_data(self):
-        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory
         today = timezone.now()
         
         month = BankCashbackMonth.objects.create(
@@ -1794,9 +1807,10 @@ class CashbackOverviewViewTest(TestCase):
             month=today.month,
             common_limit=Decimal('10000.00')
         )
+        cashback_cat = CashbackCategory.objects.create(name='Products')
         category = BankCashbackCategory.objects.create(
             bank=self.bank,
-            category='PRODUCTS',
+            category=cashback_cat,
             percent=Decimal('5.0')
         )
         BankCashbackSelection.objects.create(
@@ -1823,4 +1837,497 @@ class CashbackOverviewViewTest(TestCase):
         
         response = self.client.get(f'/cashback/{next_year}/{next_month}/')
         self.assertEqual(response.status_code, 200)
+
+
+class CashbackCategoryModelTest(TestCase):
+    """Tests for the new CashbackCategory model."""
+    
+    def test_create_cashback_category(self):
+        from finance.models import CashbackCategory
+        category = CashbackCategory.objects.create(
+            name='Test Category',
+            image='cashback_categories/test.svg',
+            waste_category='PRODUCTS'
+        )
+        self.assertEqual(category.name, 'Test Category')
+        self.assertEqual(category.image, 'cashback_categories/test.svg')
+        self.assertEqual(category.waste_category, 'PRODUCTS')
+    
+    def test_cashback_category_str(self):
+        from finance.models import CashbackCategory
+        category = CashbackCategory.objects.create(name='Products')
+        self.assertEqual(str(category), 'Products')
+    
+    def test_cashback_category_optional_waste_category(self):
+        from finance.models import CashbackCategory
+        category = CashbackCategory.objects.create(
+            name='Custom Category',
+            waste_category=None
+        )
+        self.assertIsNone(category.waste_category)
+    
+    def test_cashback_category_unique_name(self):
+        from finance.models import CashbackCategory
+        CashbackCategory.objects.create(name='Products')
+        with self.assertRaises(Exception):
+            CashbackCategory.objects.create(name='Products')
+    
+    def test_cashback_category_ordering(self):
+        from finance.models import CashbackCategory
+        CashbackCategory.objects.create(name='Zebra')
+        CashbackCategory.objects.create(name='Apple')
+        CashbackCategory.objects.create(name='Mango')
+        
+        categories = list(CashbackCategory.objects.values_list('name', flat=True))
+        self.assertEqual(categories, ['Apple', 'Mango', 'Zebra'])
+
+
+class BankCashbackCategoryForeignKeyTest(TestCase):
+    """Tests for BankCashbackCategory with ForeignKey to CashbackCategory."""
+    
+    def setUp(self):
+        from finance.models import CashbackCategory, Bank
+        self.bank = Bank.objects.create(name='Test Bank')
+        self.cashback_cat = CashbackCategory.objects.create(name='Products')
+    
+    def test_bank_cashback_category_with_fk(self):
+        from finance.models import BankCashbackCategory
+        category = BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cashback_cat,
+            percent=Decimal('5.0'),
+            limit=Decimal('3000.00')
+        )
+        self.assertEqual(category.category.name, 'Products')
+        self.assertEqual(category.percent, Decimal('5.0'))
+    
+    def test_bank_cashback_category_str(self):
+        from finance.models import BankCashbackCategory
+        category = BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cashback_cat,
+            percent=Decimal('5.0')
+        )
+        self.assertIn('Test Bank', str(category))
+        self.assertIn('Products', str(category))
+        self.assertIn('5.0', str(category))
+
+
+class BankSaveCategoriesViewTest(TestCase):
+    """Tests for the bank_save_categories view (Step 1)."""
+    
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.bank = Bank.objects.create(name='Sberbank', cashback_categories_limit=3)
+        self.client.force_login(self.user)
+        
+        from finance.models import CashbackCategory
+        self.cat1 = CashbackCategory.objects.create(name='Products')
+        self.cat2 = CashbackCategory.objects.create(name='Transport')
+        self.cat3 = CashbackCategory.objects.create(name='Cafe')
+    
+    def test_save_categories_creates_month_categories(self):
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory
+        today = timezone.now()
+        
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [self.cat1.pk, self.cat2.pk],
+                f'percent_{self.cat1.pk}': '5.0',
+                f'percent_{self.cat2.pk}': '3.0',
+                f'limit_{self.cat1.pk}': '3000',
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Check that BankCashbackMonth was created
+        month_obj = BankCashbackMonth.objects.get(bank=self.bank, year=today.year, month=today.month)
+        self.assertIsNotNone(month_obj)
+        
+        # Check that BankCashbackMonthCategory objects were created
+        self.assertEqual(BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj).count(), 2)
+        
+        cat1_month = BankCashbackMonthCategory.objects.get(bank_cashback_month=month_obj, category=self.cat1)
+        self.assertEqual(cat1_month.percent, Decimal('5.0'))
+        self.assertEqual(cat1_month.limit, Decimal('3000'))
+    
+    def test_save_categories_redirects_to_bank_view(self):
+        today = timezone.now()
+        
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [self.cat1.pk],
+                f'percent_{self.cat1.pk}': '5.0',
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, f'/bank/{self.bank.pk}/')
+    
+    def test_save_categories_updates_existing(self):
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory
+        today = timezone.now()
+        
+        # Create initial month and category
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('1.0')
+        )
+        
+        # Update via view
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [self.cat1.pk],
+                f'percent_{self.cat1.pk}': '10.0',
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        cat1_month = BankCashbackMonthCategory.objects.get(bank_cashback_month=month_obj, category=self.cat1)
+        self.assertEqual(cat1_month.percent, Decimal('10.0'))
+
+    def test_save_categories_then_bank_view_shows_categories(self):
+        """Test that after Step 1, the bank page shows categories in Available section."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory
+        today = timezone.now()
+        
+        # Step 1: Save categories
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [self.cat1.pk, self.cat2.pk],
+                f'percent_{self.cat1.pk}': '5.0',
+                f'percent_{self.cat2.pk}': '3.0',
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Verify month categories exist in database
+        month_obj = BankCashbackMonth.objects.get(bank=self.bank, year=today.year, month=today.month)
+        month_cats = BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj)
+        self.assertEqual(month_cats.count(), 2)
+        
+        # Check bank page shows "Available categories" with Products and Transport
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Available categories')
+        self.assertContains(response, 'Products')
+        self.assertContains(response, 'Transport')
+        self.assertContains(response, 'Save')
+    
+    def test_save_categories_debug_flow(self):
+        """Debug test to trace the full flow."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory
+        today = timezone.now()
+        
+        # Initial state - should show "Show all categories"
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Show all categories')
+        
+        # Initial database state - no month categories
+        self.assertEqual(BankCashbackMonthCategory.objects.count(), 0)
+        
+        # Step 1: Save categories via POST
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [str(self.cat1.pk), str(self.cat2.pk)],
+                f'percent_{self.cat1.pk}': '5.0',
+                f'percent_{self.cat2.pk}': '3.0',
+                f'limit_{self.cat1.pk}': '3000',
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Database should have month and 2 BankCashbackMonthCategory objects
+        month_obj = BankCashbackMonth.objects.get(bank=self.bank, year=today.year, month=today.month)
+        month_cats = BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj)
+        self.assertEqual(month_cats.count(), 2, f"Expected 2 month categories, got {month_cats.count()}")
+        
+        # Verify the saved data
+        cat1_month = BankCashbackMonthCategory.objects.get(bank_cashback_month=month_obj, category=self.cat1)
+        self.assertEqual(cat1_month.percent, Decimal('5.0'))
+        self.assertEqual(cat1_month.limit, Decimal('3000'))
+        
+        cat2_month = BankCashbackMonthCategory.objects.get(bank_cashback_month=month_obj, category=self.cat2)
+        self.assertEqual(cat2_month.percent, Decimal('3.0'))
+        
+        # After Step 1, bank page should show month config exists
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        
+        # Check that month object was created
+        self.assertIn('current_month_obj', response.context)
+        self.assertIsNotNone(response.context['current_month_obj'])
+        
+        # Check rendered HTML has Save form (since month exists)
+        content = response.content.decode()
+        self.assertIn('Save', content)
+        
+    def test_save_categories_persists_in_database(self):
+        """Test that saved categories persist in database after Step 1."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory
+        today = timezone.now()
+        
+        # Save categories via POST
+        self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [str(self.cat1.pk), str(self.cat2.pk)],
+                f'percent_{self.cat1.pk}': '5.0',
+                f'percent_{self.cat2.pk}': '3.0',
+                f'limit_{self.cat1.pk}': '3000',
+            }
+        )
+        
+        # Get the month
+        month_obj = BankCashbackMonth.objects.get(bank=self.bank, year=today.year, month=today.month)
+        
+        # Verify in database
+        cat1_month = BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj, category=self.cat1).first()
+        self.assertIsNotNone(cat1_month, "BankCashbackMonthCategory for cat1 should exist")
+        self.assertEqual(cat1_month.percent, Decimal('5.0'))
+        self.assertEqual(cat1_month.limit, Decimal('3000'))
+        
+        cat2_month = BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj, category=self.cat2).first()
+        self.assertIsNotNone(cat2_month, "BankCashbackMonthCategory for cat2 should exist")
+        self.assertEqual(cat2_month.percent, Decimal('3.0'))
+        self.assertIsNone(cat2_month.limit)
+        
+        # Verify cat3 was NOT saved
+        cat3_month = BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj, category=self.cat3).first()
+        self.assertIsNone(cat3_month, "BankCashbackMonthCategory for cat3 should NOT exist")
+
+
+class BankAddNewCategoryViewTest(TestCase):
+    """Tests for the bank_add_new_category view."""
+    
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.bank = Bank.objects.create(name='Sberbank', cashback_categories_limit=3)
+        self.client.force_login(self.user)
+    
+    def test_add_new_category_creates_cashback_category(self):
+        from finance.models import CashbackCategory
+        
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/add-category/',
+            {'name': 'New Category'}
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Check CashbackCategory was created
+        self.assertTrue(CashbackCategory.objects.filter(name='New Category').exists())
+    
+    def test_add_new_category_with_existing_name(self):
+        from finance.models import CashbackCategory
+        
+        # Create existing category
+        CashbackCategory.objects.create(name='Existing Category')
+        
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/add-category/',
+            {'name': 'Existing Category'}
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Should only have one CashbackCategory
+        self.assertEqual(CashbackCategory.objects.filter(name='Existing Category').count(), 1)
+    
+    def test_add_new_category_empty_name(self):
+        from finance.models import CashbackCategory
+        
+        initial_count = CashbackCategory.objects.count()
+        
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/add-category/',
+            {'name': ''}
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # No new categories should be created
+        self.assertEqual(CashbackCategory.objects.count(), initial_count)
+
+
+class BankSelectCategoriesViewTest(TestCase):
+    """Tests for the bank_select_categories view (Step 2)."""
+    
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.bank = Bank.objects.create(name='Sberbank', cashback_categories_limit=3)
+        self.client.force_login(self.user)
+        
+        from finance.models import CashbackCategory, BankCashbackCategory
+        self.cat1 = CashbackCategory.objects.create(name='Products')
+        self.cat2 = CashbackCategory.objects.create(name='Transport')
+        self.cat3 = CashbackCategory.objects.create(name='Cafe')
+        
+        # Create bank categories
+        self.bank_cat1 = BankCashbackCategory.objects.create(
+            bank=self.bank, category=self.cat1, percent=Decimal('5.0')
+        )
+        self.bank_cat2 = BankCashbackCategory.objects.create(
+            bank=self.bank, category=self.cat2, percent=Decimal('3.0')
+        )
+        self.bank_cat3 = BankCashbackCategory.objects.create(
+            bank=self.bank, category=self.cat3, percent=Decimal('2.0')
+        )
+    
+    def test_select_categories_creates_month_and_selections(self):
+        from finance.models import BankCashbackMonth, BankCashbackSelection
+        today = timezone.now()
+        
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/choose/',
+            {
+                'selected_categories[]': [self.bank_cat1.pk, self.bank_cat2.pk]
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Check BankCashbackMonth was created
+        month = BankCashbackMonth.objects.get(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        self.assertIsNotNone(month)
+        
+        # Check selections were created
+        selections = BankCashbackSelection.objects.filter(
+            bank_cashback_month=month,
+            is_selected=True
+        )
+        self.assertEqual(selections.count(), 2)
+    
+    def test_select_categories_respects_max_limit(self):
+        from finance.models import BankCashbackMonth, BankCashbackSelection
+        today = timezone.now()
+        
+        # Set max_categories to 2
+        self.bank.cashback_categories_limit = 2
+        self.bank.save()
+        
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/choose/',
+            {
+                'selected_categories[]': [self.bank_cat1.pk, self.bank_cat2.pk, self.bank_cat3.pk]
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+        
+        # Check only 2 were selected
+        month = BankCashbackMonth.objects.get(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        selections = BankCashbackSelection.objects.filter(
+            bank_cashback_month=month,
+            is_selected=True
+        )
+        self.assertEqual(selections.count(), 2)
+    
+    def test_select_categories_view_get_request(self):
+        today = timezone.now()
+        
+        response = self.client.get(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/choose/'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Products')
+        self.assertContains(response, 'Transport')
+        self.assertContains(response, 'Cafe')
+
+
+class BankViewWithNewCategoriesTest(TestCase):
+    """Tests for bank_view with the new category system."""
+    
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.bank = Bank.objects.create(name='Sberbank', cashback_categories_limit=3)
+        self.client.force_login(self.user)
+        
+        from finance.models import CashbackCategory
+        self.cat1 = CashbackCategory.objects.create(name='Products')
+        self.cat2 = CashbackCategory.objects.create(name='Transport')
+    
+    def test_bank_view_shows_show_all_categories_button_when_no_month(self):
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Show all categories')
+    
+    def test_bank_view_shows_available_categories_when_month_categories_exist(self):
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
+        
+        # Create month and month-specific categories
+        today = timezone.now()
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        # Also create BankCashbackCategory (would be created by Step 1)
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Available categories')
+        self.assertContains(response, 'Products')
+    
+    def test_bank_view_passes_available_categories_to_template(self):
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
+        
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=2026,
+            month=3
+        )
+        # Create BankCashbackMonthCategory (month-specific config)
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat2,
+            percent=Decimal('3.0')
+        )
+        # Create BankCashbackCategory (bank-level)
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat2,
+            percent=Decimal('3.0')
+        )
+        
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        
+        # Check current_available is in context
+        self.assertIn('current_available', response.context)
+        self.assertEqual(len(response.context['current_available']), 2)
 

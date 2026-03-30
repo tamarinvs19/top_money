@@ -11,7 +11,7 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
         for provider_name, image_name in PROVIDERS:
-            image_path = os.path.join(settings.MEDIA_ROOT, 'providers', image_name)
+            image_path = os.path.join(settings.STATIC_ROOT, 'providers', image_name)
             provider, created = Provider.objects.get_or_create(name=provider_name)
             if created:
                 created_count += 1

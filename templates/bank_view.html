@@ -47,99 +47,314 @@
 </div>
 
 <h4 class="mt-4">Cashback</h4>
+
 <div class="row">
+  <!-- Current Month -->
   <div class="col-md-6 mb-3">
     <div class="card">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">{{ current_year }}-{{ current_month|stringformat:"02d" }}</h5>
+        {% if current_month_obj %}
+        <a href="{% url 'bank_cashback_edit' bank.pk current_year current_month %}" class="btn btn-sm btn-outline-secondary">Edit limits</a>
+        {% endif %}
       </div>
       <div class="card-body">
         {% if current_month_obj %}
           {% if current_month_obj.common_limit %}
-          <p><strong>Common limit:</strong> {{ current_month_obj.common_limit|floatformat:2 }} ₽</p>
+          <p class="mb-1"><strong>Common limit:</strong> {{ current_month_obj.common_limit|floatformat:2 }} ₽</p>
           {% endif %}
-          <p><strong>Max categories:</strong> {{ current_month_obj.get_max_categories }}</p>
-          <a href="{% url 'bank_cashback_edit' bank.pk current_year current_month %}" class="btn btn-sm btn-outline-secondary mb-3">Edit limits</a>
-          
-          <h6>Selected categories ({{ current_selected|length }}/{{ current_month_obj.get_max_categories }})</h6>
-          {% if current_selected %}
-          <ul class="list-group mb-3">
-            {% for cat in current_selected %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ cat.get_category_display }}
-              <span class="badge bg-primary">{{ cat.percent }}%{% if cat.limit %} (max {{ cat.limit|floatformat:0 }}){% endif %}</span>
-              <a href="{% url 'select_cashback_category' bank.pk current_year current_month cat.pk %}" class="btn btn-sm btn-outline-danger">✕</a>
-            </li>
-            {% endfor %}
-          </ul>
-          {% else %}
-          <p class="text-muted">No categories selected</p>
-          {% endif %}
-          
-          {% if current_available %}
-          <h6>Available categories</h6>
-          <ul class="list-group">
-            {% for cat in current_available %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ cat.get_category_display }}
-              <span class="badge bg-secondary">{{ cat.percent }}%{% if cat.limit %} (max {{ cat.limit|floatformat:0 }}){% endif %}</span>
-              <a href="{% url 'select_cashback_category' bank.pk current_year current_month cat.pk %}" class="btn btn-sm btn-outline-success">+</a>
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-        {% else %}
-          <p class="text-muted">No cashback categories added</p>
-          <a href="{% url 'add_cashback_categories' bank.pk current_year current_month %}" class="btn btn-primary">Add all categories</a>
+          <p class="mb-2"><strong>Max categories:</strong> {{ current_month_obj.get_max_categories }}</p>
+        {% endif %}
+        
+        <!-- Button to configure categories -->
+        <button type="button" class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#currentConfigModal">
+          <i class="bi bi-gear"></i> Show all categories
+        </button>
+        
+        {% if current_selected %}
+        <h6>Selected categories ({{ current_selected|length }}{% if current_month_obj %}/{{ current_month_obj.get_max_categories }}{% endif %})</h6>
+        <ul class="list-group mb-3">
+          {% for cat in current_selected %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <div class="d-flex align-items-center">
+              {% if cat.category.image %}
+              <img src="{% static cat.category.image %}" alt="{{ cat.category.name }}" style="width: 24px; height: 24px; margin-right: 8px;">
+              {% endif %}
+              <span>{{ cat.category.name }}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge bg-primary me-2">{{ cat.percent }}%</span>
+              <button type="button" class="btn btn-sm btn-outline-danger toggle-category" 
+                      data-cat-id="{{ cat.pk }}" data-action="remove" data-month="current">✕</button>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        
+        {% if current_available %}
+        <h6>Available categories</h6>
+        <ul class="list-group mb-3">
+          {% for cat in current_available %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <div class="d-flex align-items-center">
+              {% if cat.category.image %}
+              <img src="{% static cat.category.image %}" alt="{{ cat.category.name }}" style="width: 24px; height: 24px; margin-right: 8px;">
+              {% endif %}
+              <span>{{ cat.category.name }}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge bg-secondary me-2">{{ cat.percent }}%</span>
+              <button type="button" class="btn btn-sm btn-outline-success toggle-category" 
+                      data-cat-id="{{ cat.pk }}" data-action="add" data-month="current">+</button>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        
+        {% if not current_selected and not current_available %}
+        <p class="text-muted">No categories configured. Click "Show all categories" to add categories.</p>
+        {% endif %}
+        
+        {% if current_month_obj %}
+        <form method="post" action="{% url 'bank_save_month_selection' bank.pk current_year current_month %}" id="currentSaveForm">
+          {% csrf_token %}
+          <input type="hidden" name="selected_ids" id="currentSelectedIds" value="{% for cat in current_selected %}{{ cat.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-save"></i> Save
+          </button>
+        </form>
         {% endif %}
       </div>
     </div>
   </div>
   
+  <!-- Next Month -->
   <div class="col-md-6 mb-3">
     <div class="card">
-      <div class="card-header">
+      <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">{{ next_year }}-{{ next_month|stringformat:"02d" }}</h5>
+        {% if next_month_obj %}
+        <a href="{% url 'bank_cashback_edit' bank.pk next_year next_month %}" class="btn btn-sm btn-outline-secondary">Edit limits</a>
+        {% endif %}
       </div>
       <div class="card-body">
         {% if next_month_obj %}
           {% if next_month_obj.common_limit %}
-          <p><strong>Common limit:</strong> {{ next_month_obj.common_limit|floatformat:2 }} ₽</p>
+          <p class="mb-1"><strong>Common limit:</strong> {{ next_month_obj.common_limit|floatformat:2 }} ₽</p>
           {% endif %}
-          <p><strong>Max categories:</strong> {{ next_month_obj.get_max_categories }}</p>
-          <a href="{% url 'bank_cashback_edit' bank.pk next_year next_month %}" class="btn btn-sm btn-outline-secondary mb-3">Edit limits</a>
-          
-          <h6>Selected categories ({{ next_selected|length }}/{{ next_month_obj.get_max_categories }})</h6>
-          {% if next_selected %}
-          <ul class="list-group mb-3">
-            {% for cat in next_selected %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ cat.get_category_display }}
-              <span class="badge bg-primary">{{ cat.percent }}%{% if cat.limit %} (max {{ cat.limit|floatformat:0 }}){% endif %}</span>
-              <a href="{% url 'select_cashback_category' bank.pk next_year next_month cat.pk %}" class="btn btn-sm btn-outline-danger">✕</a>
-            </li>
-            {% endfor %}
-          </ul>
-          {% else %}
-          <p class="text-muted">No categories selected</p>
-          {% endif %}
-          
-          {% if next_available %}
-          <h6>Available categories</h6>
-          <ul class="list-group">
-            {% for cat in next_available %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ cat.get_category_display }}
-              <span class="badge bg-secondary">{{ cat.percent }}%{% if cat.limit %} (max {{ cat.limit|floatformat:0 }}){% endif %}</span>
-              <a href="{% url 'select_cashback_category' bank.pk next_year next_month cat.pk %}" class="btn btn-sm btn-outline-success">+</a>
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-        {% else %}
-          <p class="text-muted">No cashback categories added</p>
-          <a href="{% url 'add_cashback_categories' bank.pk next_year next_month %}" class="btn btn-primary">Add all categories</a>
+          <p class="mb-2"><strong>Max categories:</strong> {{ next_month_obj.get_max_categories }}</p>
         {% endif %}
+        
+        <!-- Button to configure categories -->
+        <button type="button" class="btn btn-primary btn-sm mb-3" data-bs-toggle="modal" data-bs-target="#nextConfigModal">
+          <i class="bi bi-gear"></i> Show all categories
+        </button>
+        
+        {% if next_selected %}
+        <h6>Selected categories ({{ next_selected|length }}{% if next_month_obj %}/{{ next_month_obj.get_max_categories }}{% endif %})</h6>
+        <ul class="list-group mb-3">
+          {% for cat in next_selected %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <div class="d-flex align-items-center">
+              {% if cat.category.image %}
+              <img src="{% static cat.category.image %}" alt="{{ cat.category.name }}" style="width: 24px; height: 24px; margin-right: 8px;">
+              {% endif %}
+              <span>{{ cat.category.name }}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge bg-primary me-2">{{ cat.percent }}%</span>
+              <button type="button" class="btn btn-sm btn-outline-danger toggle-category" 
+                      data-cat-id="{{ cat.pk }}" data-action="remove" data-month="next">✕</button>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        
+        {% if next_available %}
+        <h6>Available categories</h6>
+        <ul class="list-group mb-3">
+          {% for cat in next_available %}
+          <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+            <div class="d-flex align-items-center">
+              {% if cat.category.image %}
+              <img src="{% static cat.category.image %}" alt="{{ cat.category.name }}" style="width: 24px; height: 24px; margin-right: 8px;">
+              {% endif %}
+              <span>{{ cat.category.name }}</span>
+            </div>
+            <div class="d-flex align-items-center">
+              <span class="badge bg-secondary me-2">{{ cat.percent }}%</span>
+              <button type="button" class="btn btn-sm btn-outline-success toggle-category" 
+                      data-cat-id="{{ cat.pk }}" data-action="add" data-month="next">+</button>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        
+        {% if not next_selected and not next_available %}
+        <p class="text-muted">No categories configured. Click "Show all categories" to add categories.</p>
+        {% endif %}
+        
+        {% if next_month_obj %}
+        <form method="post" action="{% url 'bank_save_month_selection' bank.pk next_year next_month %}" id="nextSaveForm">
+          {% csrf_token %}
+          <input type="hidden" name="selected_ids" id="nextSelectedIds" value="{% for cat in next_selected %}{{ cat.pk }}{% if not forloop.last %},{% endif %}{% endfor %}">
+          <button type="submit" class="btn btn-success">
+            <i class="bi bi-save"></i> Save
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Config Modal for Current Month -->
+<div class="modal fade" id="currentConfigModal" tabindex="-1" aria-labelledby="currentConfigModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="currentConfigModalLabel">Configure Categories for {{ current_year }}-{{ current_month|stringformat:"02d" }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="currentConfigForm" method="post" action="{% url 'bank_save_categories' bank.pk current_year current_month %}">
+          {% csrf_token %}
+          
+          <!-- Add new category -->
+          <div class="card mb-3 border-primary">
+            <div class="card-header bg-primary text-white">
+              <i class="bi bi-plus-circle"></i> Add New Category
+            </div>
+            <div class="card-body">
+              <div class="input-group">
+                <input type="text" id="currentNewCategoryName" class="form-control" placeholder="Enter new category name" required>
+                <button type="button" class="btn btn-success" id="currentAddCategoryBtn">
+                  <i class="bi bi-plus"></i> Add
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Categories list for mobile -->
+          <div class="category-list">
+            {% for cat in all_cashback_categories %}
+            <div class="category-item d-flex align-items-center py-2 border-bottom">
+              <div class="form-check me-3">
+                <input type="checkbox" name="category_ids[]" value="{{ cat.pk }}" 
+                       class="form-check-input category-checkbox category-checkbox-lg"
+                       id="current_cat_{{ cat.pk }}"
+                       {% if cat.pk in current_month_category_ids %}checked{% endif %}>
+              </div>
+              <div class="d-flex align-items-center flex-grow-1">
+                {% if cat.image %}
+                <img src="{% static cat.image %}" alt="{{ cat.name }}" style="width: 32px; height: 32px; margin-right: 10px;">
+                {% endif %}
+                <span class="category-name">{{ cat.name }}</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="input-group input-group-sm" style="width: 90px;">
+                  <input type="number" name="percent_{{ cat.pk }}" 
+                         class="form-control text-end percent-input" 
+                         step="0.1" min="0" max="100" value="1.0"
+                         title="Cashback percentage"
+                         {% if cat.pk not in current_month_category_ids %}disabled{% endif %}>
+                  <span class="input-group-text" title="Cashback percentage">%</span>
+                </div>
+                <input type="number" name="limit_{{ cat.pk }}" 
+                       class="form-control form-control-sm text-end limit-input" 
+                       style="width: 80px;"
+                       step="1" min="0" placeholder="Limit"
+                       title="Monthly limit (optional)"
+                       {% if cat.pk not in current_month_category_ids %}disabled{% endif %}>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="currentSaveConfigBtn">
+          <i class="bi bi-save"></i> Save Categories
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Config Modal for Next Month -->
+<div class="modal fade" id="nextConfigModal" tabindex="-1" aria-labelledby="nextConfigModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="nextConfigModalLabel">Configure Categories for {{ next_year }}-{{ next_month|stringformat:"02d" }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="nextConfigForm" method="post" action="{% url 'bank_save_categories' bank.pk next_year next_month %}">
+          {% csrf_token %}
+          
+          <!-- Add new category -->
+          <div class="card mb-3 border-primary">
+            <div class="card-header bg-primary text-white">
+              <i class="bi bi-plus-circle"></i> Add New Category
+            </div>
+            <div class="card-body">
+              <div class="input-group">
+                <input type="text" id="nextNewCategoryName" class="form-control" placeholder="Enter new category name" required>
+                <button type="button" class="btn btn-success" id="nextAddCategoryBtn">
+                  <i class="bi bi-plus"></i> Add
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Categories list for mobile -->
+          <div class="category-list">
+            {% for cat in all_cashback_categories %}
+            <div class="category-item d-flex align-items-center py-2 border-bottom">
+              <div class="form-check me-3">
+                <input type="checkbox" name="category_ids[]" value="{{ cat.pk }}" 
+                       class="form-check-input category-checkbox category-checkbox-lg next-category-checkbox"
+                       id="next_cat_{{ cat.pk }}"
+                       {% if cat.pk in next_month_category_ids %}checked{% endif %}>
+              </div>
+              <div class="d-flex align-items-center flex-grow-1">
+                {% if cat.image %}
+                <img src="{% static cat.image %}" alt="{{ cat.name }}" style="width: 32px; height: 32px; margin-right: 10px;">
+                {% endif %}
+                <span class="category-name">{{ cat.name }}</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="input-group input-group-sm" style="width: 90px;">
+                  <input type="number" name="percent_{{ cat.pk }}" 
+                         class="form-control text-end next-percent-input" 
+                         step="0.1" min="0" max="100" value="1.0"
+                         title="Cashback percentage"
+                         {% if cat.pk not in next_month_category_ids %}disabled{% endif %}>
+                  <span class="input-group-text" title="Cashback percentage">%</span>
+                </div>
+                <input type="number" name="limit_{{ cat.pk }}" 
+                       class="form-control form-control-sm text-end next-limit-input" 
+                       style="width: 80px;"
+                       step="1" min="0" placeholder="Limit"
+                       title="Monthly limit (optional)"
+                       {% if cat.pk not in next_month_category_ids %}disabled{% endif %}>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="nextSaveConfigBtn">
+          <i class="bi bi-save"></i> Save Categories
+        </button>
       </div>
     </div>
   </div>
@@ -149,4 +364,212 @@
   <a href="{% url 'cashback_overview' %}" class="btn btn-outline-primary">All banks cashback</a>
   <a href="{% url 'banks' %}" class="btn btn-outline-secondary">Back to banks</a>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Helper to get CSRF token
+  function getCsrfToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]');
+    return token ? token.value : '';
+  }
+  
+  // Current month - Config modal checkboxes
+  document.querySelectorAll('.category-checkbox:not(.next-category-checkbox)').forEach(function(checkbox) {
+    checkbox.addEventListener('change', function() {
+      const item = this.closest('.category-item');
+      item.querySelector('.percent-input').disabled = !this.checked;
+      item.querySelector('.limit-input').disabled = !this.checked;
+    });
+  });
+  
+  const currentSaveConfigBtn = document.getElementById('currentSaveConfigBtn');
+  if (currentSaveConfigBtn) {
+    currentSaveConfigBtn.addEventListener('click', function() {
+      document.getElementById('currentConfigForm').submit();
+    });
+  }
+  
+  // Next month - Config modal checkboxes
+  document.querySelectorAll('.next-category-checkbox').forEach(function(checkbox) {
+    checkbox.addEventListener('change', function() {
+      const item = this.closest('.category-item');
+      item.querySelector('.next-percent-input').disabled = !this.checked;
+      item.querySelector('.next-limit-input').disabled = !this.checked;
+    });
+  });
+  
+  const nextSaveConfigBtn = document.getElementById('nextSaveConfigBtn');
+  if (nextSaveConfigBtn) {
+    nextSaveConfigBtn.addEventListener('click', function() {
+      document.getElementById('nextConfigForm').submit();
+    });
+  }
+  
+  // Add new category buttons
+  function setupAddCategoryBtn(btnId, nameInputId) {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.addEventListener('click', function() {
+        const nameInput = document.getElementById(nameInputId);
+        const name = nameInput.value.trim();
+        if (name) {
+          // Get current URL to determine which month we're configuring
+          const pathParts = window.location.pathname.split('/');
+          const bankId = pathParts[2];
+          const isCurrent = btnId.includes('current');
+          const year = isCurrent ? {{ current_year }} : {{ next_year }};
+          const month = isCurrent ? {{ current_month }} : {{ next_month }};
+          
+          const form = document.createElement('form');
+          form.method = 'post';
+          form.action = '/bank/' + bankId + '/add-category/';
+          
+          const csrfInput = document.createElement('input');
+          csrfInput.type = 'hidden';
+          csrfInput.name = 'csrfmiddlewaretoken';
+          csrfInput.value = getCsrfToken();
+          form.appendChild(csrfInput);
+          
+          const nameHidden = document.createElement('input');
+          nameHidden.type = 'hidden';
+          nameHidden.name = 'name';
+          nameHidden.value = name;
+          form.appendChild(nameHidden);
+          
+          const nextInput = document.createElement('input');
+          nextInput.type = 'hidden';
+          nextInput.name = 'next';
+          nextInput.value = window.location.pathname;
+          form.appendChild(nextInput);
+          
+          document.body.appendChild(form);
+          form.submit();
+        }
+      });
+    }
+  }
+  
+  setupAddCategoryBtn('currentAddCategoryBtn', 'currentNewCategoryName');
+  setupAddCategoryBtn('nextAddCategoryBtn', 'nextNewCategoryName');
+  
+  // Toggle category buttons
+  document.querySelectorAll('.toggle-category').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const catId = this.dataset.catId;
+      const action = this.dataset.action;
+      const month = this.dataset.month;
+      
+      const idsInput = document.getElementById(month + 'SelectedIds');
+      const saveForm = document.getElementById(month + 'SaveForm');
+      
+      // Get current selected IDs
+      let selectedIds = [];
+      if (idsInput && idsInput.value) {
+        selectedIds = idsInput.value.split(',').filter(Boolean);
+      }
+      
+      // Update the selection
+      if (action === 'add') {
+        if (!selectedIds.includes(catId)) {
+          selectedIds.push(catId);
+        }
+      } else if (action === 'remove') {
+        selectedIds = selectedIds.filter(id => id !== catId);
+      }
+      
+      if (saveForm) {
+        // Update the hidden input and submit existing form
+        if (idsInput) {
+          idsInput.value = selectedIds.join(',');
+        }
+        saveForm.submit();
+      } else {
+        // Create form dynamically if it doesn't exist
+        const bankId = {{ bank.pk }};
+        const year = month === 'current' ? {{ current_year }} : {{ next_year }};
+        const mon = month === 'current' ? {{ current_month }} : {{ next_month }};
+        
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = '/bank/' + bankId + '/cashback/' + year + '/' + mon + '/selection/';
+        
+        const csrfToken = getCsrfToken();
+        if (csrfToken) {
+          const csrfInput = document.createElement('input');
+          csrfInput.type = 'hidden';
+          csrfInput.name = 'csrfmiddlewaretoken';
+          csrfInput.value = csrfToken;
+          form.appendChild(csrfInput);
+        }
+        
+        const selectedIdsInput = document.createElement('input');
+        selectedIdsInput.type = 'hidden';
+        selectedIdsInput.name = 'selected_ids';
+        selectedIdsInput.value = selectedIds.join(',');
+        form.appendChild(selectedIdsInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+      }
+    });
+  });
+});
+</script>
+
+<style>
+/* Custom bigger checkboxes for mobile */
+.category-checkbox-lg {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  margin-top: 0;
+}
+
+.category-checkbox-lg:checked {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.category-checkbox-lg:checked::before {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.form-check {
+  min-height: 24px;
+  padding-left: 0;
+  margin-right: 12px;
+}
+
+.category-item {
+  transition: background-color 0.2s;
+  padding-left: 16px;
+  padding-right: 8px;
+}
+
+.category-item:hover {
+  background-color: #f8f9fa;
+}
+
+@media (max-width: 576px) {
+  .category-checkbox-lg {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .category-checkbox-lg:checked::before {
+    font-size: 18px;
+  }
+  
+  .category-name {
+    font-size: 14px;
+  }
+}
+</style>
 {% endblock %}

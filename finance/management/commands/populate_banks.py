@@ -11,7 +11,7 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
         for bank_name, image_name in BANKS:
-            image_path = os.path.join(settings.MEDIA_ROOT, 'banks', image_name)
+            image_path = os.path.join(settings.STATIC_ROOT, 'banks', image_name)
             bank, created = Bank.objects.get_or_create(name=bank_name)
             if created:
                 created_count += 1
