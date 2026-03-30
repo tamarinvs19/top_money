@@ -68,43 +68,43 @@
       </div>
     </nav>
     {% if user.is_authenticated %}
-    <nav class="navbar fixed-bottom navbar-light bg-white shadow-sm d-lg-none">
-      <div class="container-fluid">
+    <nav class="navbar fixed-bottom navbar-light bg-white shadow-sm d-lg-none" style="padding: 0;">
+      <div class="container-fluid px-0">
         <div class="row w-100 g-0 text-center">
-          <div class="col-3">
+          <div class="col">
             <a class="nav-link py-1 d-block" href="{% url 'transactions' %}">
               <i class="bi bi-list-ul d-block" style="font-size: 1rem;"></i>
-              <small style="font-size: 0.6rem;">Transactions</small>
+              <small style="font-size: 0.5rem;">Trans</small>
             </a>
           </div>
-          <div class="col-3">
+          <div class="col">
             <a class="nav-link py-1 d-block" href="{% url 'statistics' %}">
               <i class="bi bi-bar-chart-line d-block" style="font-size: 1rem;"></i>
-              <small style="font-size: 0.6rem;">Statistics</small>
+              <small style="font-size: 0.5rem;">Stats</small>
             </a>
           </div>
-          <div class="col-2">
+          <div class="col">
             <a class="nav-link py-1 d-block" href="{% url 'assets' %}">
               <i class="bi bi-wallet2 d-block" style="font-size: 1rem;"></i>
-              <small style="font-size: 0.6rem;">Assets</small>
+              <small style="font-size: 0.5rem;">Assets</small>
             </a>
           </div>
-          <div class="col-2">
+          <div class="col">
             <a class="nav-link py-1 d-block" href="{% url 'banks' %}">
               <i class="bi bi-bank d-block" style="font-size: 1rem;"></i>
-              <small style="font-size: 0.6rem;">Banks</small>
+              <small style="font-size: 0.5rem;">Banks</small>
             </a>
           </div>
-          <div class="col-2">
+          <div class="col">
             <a class="nav-link py-1 d-block" href="{% url 'cashback_overview' %}">
               <i class="bi bi-cash d-block" style="font-size: 1rem;"></i>
-              <small style="font-size: 0.6rem;">Cashback</small>
+              <small style="font-size: 0.5rem;">Cash</small>
             </a>
           </div>
-          <div class="col-2">
+          <div class="col">
             <a class="nav-link py-1 d-block" href="{% url 'profile' %}">
               <i class="bi bi-person d-block" style="font-size: 1rem;"></i>
-              <small style="font-size: 0.6rem;">Profile</small>
+              <small style="font-size: 0.5rem;">Profile</small>
             </a>
           </div>
         </div>
