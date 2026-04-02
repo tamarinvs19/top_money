@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Create Cashback Category - Finance Manager{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2>Create Cashback Category</h2>
+  <a href="{% url 'cashback_categories_list' %}" class="btn btn-outline-secondary">Back to categories</a>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          
+          <div class="mb-3">
+            <label for="name" class="form-label">Name</label>
+            <input type="text" class="form-control" id="name" name="name" placeholder="Enter category name" required>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Icon</label>
+            <div class="icon-picker d-flex flex-wrap gap-2">
+              {% for icon in icons %}
+              <label class="icon-option">
+                <input type="radio" name="icon" value="{{ icon }}" class="d-none" {% if forloop.first %}checked{% endif %}>
+                <span class="icon-box">{{ icon }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label">Color</label>
+            <div class="color-picker d-flex flex-wrap gap-2">
+              {% for color in colors %}
+              <label class="color-option">
+                <input type="radio" name="color" value="{{ color }}" class="d-none" {% if forloop.first %}checked{% endif %}>
+                <span class="color-box" style="background-color: {{ color }};"></span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          
+          <button type="submit" class="btn btn-primary">Create Category</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Preview</h5>
+      </div>
+      <div class="card-body text-center">
+        <div id="preview-icon" style="width: 80px; height: 80px; margin: 0 auto; background: #4CAF50; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 36px;">
+          🛒
+        </div>
+        <p class="mt-3 mb-0"><span id="preview-name">Category Name</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.icon-option:hover .icon-box {
+  border-color: #0d6efd;
+}
+.icon-option input:checked + .icon-box {
+  border-color: #0d6efd;
+  background: #e7f1ff;
+}
+.color-box {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+.color-option:hover .color-box {
+  transform: scale(1.1);
+}
+.color-option input:checked + .color-box {
+  border-color: #333;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #333;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const iconOptions = document.querySelectorAll('.icon-option input');
+  const colorOptions = document.querySelectorAll('.color-option input');
+  const nameInput = document.getElementById('name');
+  const previewIcon = document.getElementById('preview-icon');
+  const previewName = document.getElementById('preview-name');
+  
+  let selectedIcon = document.querySelector('.icon-option input:checked').value;
+  let selectedColor = document.querySelector('.color-option input:checked').value;
+  
+  function updatePreview() {
+    previewIcon.innerHTML = selectedIcon;
+    previewIcon.style.backgroundColor = selectedColor;
+    previewName.textContent = nameInput.value || 'Category Name';
+  }
+  
+  iconOptions.forEach(input => {
+    input.addEventListener('change', function() {
+      selectedIcon = this.value;
+      updatePreview();
+    });
+  });
+  
+  colorOptions.forEach(input => {
+    input.addEventListener('change', function() {
+      selectedColor = this.value;
+      updatePreview();
+    });
+  });
+  
+  nameInput.addEventListener('input', updatePreview);
+  
+  updatePreview();
+});
+</script>
+{% endblock %}

@@ -5,7 +5,7 @@
 - Make migrations: `uv run python manage.py makemigrations`
 - Migrate database: `uv run python manage.py migrate`
 - Run tests: `uv run python manage.py test`
-- Do not use `vycheslav` pattern anywhere
+- Use only relative paths in your commands
 
 ## Testing instructions
 - Find the CI plan in the .github/workflows folder.

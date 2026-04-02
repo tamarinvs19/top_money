@@ -46,6 +46,10 @@ urlpatterns = [
     path('cashback/<int:year>/<int:month>/save/<int:pk>/', views.cashback_overview_save, name='cashback_overview_save'),
     path('cashback/<int:year>/<int:month>/select/<int:bank_id>/', views.cashback_overview_select, name='cashback_overview_select'),
     
+    path('cashback/categories/', views.cashback_categories_list, name='cashback_categories_list'),
+    path('cashback/category/create/', views.cashback_category_create, name='cashback_category_create'),
+    path('cashback/category/<int:pk>/edit/', views.cashback_category_edit, name='cashback_category_edit'),
+    
     path('provider/add/', views.provider_add, name='provider_add'),
     path('provider/<int:pk>/edit/', views.provider_edit, name='provider_edit'),
     path('provider/<int:pk>/', views.provider_view, name='provider_view'),

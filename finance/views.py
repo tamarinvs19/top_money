@@ -9,10 +9,13 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.db import models
 from django.http import JsonResponse, HttpResponse
+from django.conf import settings
 from django import forms
+import os
+import shutil
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
-from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, BANKS, BankAsset, Provider, PROVIDERS
+from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, BANKS, BankAsset, Provider, PROVIDERS, CashbackCategory
 from finance.models import InvitationCode, BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory, BankCashbackMonthCategory
 from finance.exchange_rate import ExchangeRateService
 
@@ -1379,3 +1382,149 @@ def bank_save_month_selection(request, pk, year, month):
                 pass
     
     return redirect('bank_view', pk=pk)
+
+
+@login_required
+def cashback_categories_list(request):
+    categories = CashbackCategory.objects.all()
+    return render(request, 'cashback_categories_list.html', {
+        'categories': categories,
+    })
+
+
+@login_required
+def cashback_category_create(request):
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        icon = request.POST.get('icon', '🛒')
+        color = request.POST.get('color', '#4CAF50')
+        
+        if not name:
+            return redirect('cashback_category_create')
+        
+        if CashbackCategory.objects.filter(name=name).exists():
+            return redirect('cashback_category_create')
+        
+        svg_content = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="8" y="8" width="48" height="48" rx="8" fill="{color}"/>
+  <text x="32" y="40" font-family="Arial" font-size="24" fill="white" text-anchor="middle">{icon}</text>
+</svg>'''
+        
+        safe_name = name.lower().replace(' ', '_').replace("'", '')
+        filename = f'cashback_categories/{safe_name}.svg'
+        filepath = os.path.join(settings.STATIC_ROOT, filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, 'w') as f:
+            f.write(svg_content)
+        
+        static_dir = settings.STATICFILES_DIRS[0] if settings.STATICFILES_DIRS else os.path.join(settings.BASE_DIR, 'static')
+        shutil.copy(filepath, os.path.join(static_dir, filename))
+        
+        category = CashbackCategory.objects.create(
+            name=name,
+            image=filename
+        )
+        
+        return redirect('cashback_categories_list')
+    
+    icons = [
+        '🛒', '🍽️', '🍔', '💊', '🚕', '🛍️', '❤️', '⛽', '🏠', '🔧',
+        '🐾', '🐕', '🚖', '⚽', '🎭', '📚', '✈️', '🌍', '👶', '💐',
+        '🎨', '📖', '💪', '📱', '🧹', '📦', '🏪', '🎯', '🎲', '🎁',
+        '🍕', '☕', '🍺', '🍷', '🎮', '🎸', '🎬', '📷', '🏋️', '🧘',
+        '💇', '💅', '👗', '👠', '⌚', '💻', '📺', '🎧', '🎤', '🏆',
+        '🥇', '🎪', '🎡', '🎢', '🏕️', '🏖️', '🗽', '🏰', '⛺', '🌴',
+        '🍜', '🍣', '🍱', '🥗', '🍰', '🧁', '🍩', '🍪', '🥤', '🍵',
+        '🌸', '🌺', '🌻', '🌹', '🥀', '🌷', '🌱', '🌲', '🍎', '🍇',
+        '🍕', '🌭', '🍟', '🌮', '🌯', '🥙', '🥪', '🍞', '🥐', '🥯',
+        '💰', '💳', '💵', '💎', '🪙', '💴', '💶', '💷', '🏦', '🏧',
+        '🛠️', '🔩', '⚙️', '🔧', '🔨', '⛏️', '🔪', '🗡️', '⚔️', '🔫',
+        '💡', '🔮', '🧲', '🔭', '🔬', '🧪', '🧬', '🩺', '🩻', '🩭',
+        '🎓', '📝', '📒', '📓', '📔', '📕', '📗', '📘', '📙', '📚',
+        '🎒', '👝', '👛', '👜', '🎒', '🧳', '👛', '💼', '📁', '📂',
+    ]
+    colors = [
+        '#4CAF50', '#E91E63', '#FF9800', '#2196F3', '#9C27B0', '#F44336',
+        '#607D8B', '#795548', '#9E9E9E', '#FF5722', '#8D6E63', '#673AB7',
+        '#3F51B5', '#03A9F4', '#00BCD4', '#CDDC39', '#FFEB3B', '#FFC107',
+        '#FF9800', '#FF5722', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
+        '#2196F3', '#03A9F4', '#00BCD4', '#009688', '#4CAF50', '#8BC34A',
+        '#CDDC39', '#FFC107', '#FF9800', '#FF5722', '#795548', '#9E9E9E',
+        '#607D8B', '#263238', '#ECEFF1', '#CFD8DC', '#B0BEC5', '#90A4AE',
+        '#78909C', '#607D8B', '#546E7A', '#455A64', '#37474F', '#263238',
+        '#FFCDD2', '#F8BBD9', '#E1BEE7', '#D1C4E9', '#C5CAE9', '#BBDEFB',
+        '#B3E5FC', '#B2EBF2', '#B2DFDB', '#C8E6C9', '#DCEDC8', '#F0F4C3',
+        '#FFF9C4', '#FFECB3', '#FFE0B2', '#FFCCBC', '#D7CCC8', '#CFD8DC',
+    ]
+    
+    return render(request, 'cashback_category_create.html', {
+        'icons': icons,
+        'colors': colors,
+    })
+
+
+@login_required
+def cashback_category_edit(request, pk):
+    category = get_object_or_404(CashbackCategory, pk=pk)
+    
+    if request.method == 'POST':
+        name = request.POST.get('name', '').strip()
+        icon = request.POST.get('icon', '🛒')
+        color = request.POST.get('color', '#4CAF50')
+        
+        if name:
+            category.name = name
+        
+        svg_content = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="8" y="8" width="48" height="48" rx="8" fill="{color}"/>
+  <text x="32" y="40" font-family="Arial" font-size="24" fill="white" text-anchor="middle">{icon}</text>
+</svg>'''
+        
+        filename = f'cashback_categories/{category.name.lower().replace(" ", "_")}.svg'
+        filepath = os.path.join(settings.STATIC_ROOT, filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, 'w') as f:
+            f.write(svg_content)
+        
+        shutil.copy(filepath, os.path.join(settings.STATICFILES_DIRS[0], filename))
+        
+        category.image = filename
+        category.save()
+        
+        return redirect('cashback_categories_list')
+    
+    icons = [
+        '🛒', '🍽️', '🍔', '💊', '🚕', '🛍️', '❤️', '⛽', '🏠', '🔧',
+        '🐾', '🐕', '🚖', '⚽', '🎭', '📚', '✈️', '🌍', '👶', '💐',
+        '🎨', '📖', '💪', '📱', '🧹', '📦', '🏪', '🎯', '🎲', '🎁',
+        '🍕', '☕', '🍺', '🍷', '🎮', '🎸', '🎬', '📷', '🏋️', '🧘',
+        '💇', '💅', '👗', '👠', '⌚', '💻', '📺', '🎧', '🎤', '🏆',
+        '🥇', '🎪', '🎡', '🎢', '🏕️', '🏖️', '🗽', '🏰', '⛺', '🌴',
+        '🍜', '🍣', '🍱', '🥗', '🍰', '🧁', '🍩', '🍪', '🥤', '🍵',
+        '🌸', '🌺', '🌻', '🌹', '🥀', '🌷', '🌱', '🌲', '🍎', '🍇',
+        '🍕', '🌭', '🍟', '🌮', '🌯', '🥙', '🥪', '🍞', '🥐', '🥯',
+        '💰', '💳', '💵', '💎', '🪙', '💴', '💶', '💷', '🏦', '🏧',
+        '🛠️', '🔩', '⚙️', '🔧', '🔨', '⛏️', '🔪', '🗡️', '⚔️', '🔫',
+        '💡', '🔮', '🧲', '🔭', '🔬', '🧪', '🧬', '🩺', '🩻', '🩭',
+        '🎓', '📝', '📒', '📓', '📔', '📕', '📗', '📘', '📙', '📚',
+        '🎒', '👝', '👛', '👜', '🎒', '🧳', '👛', '💼', '📁', '📂',
+    ]
+    colors = [
+        '#4CAF50', '#E91E63', '#FF9800', '#2196F3', '#9C27B0', '#F44336',
+        '#607D8B', '#795548', '#9E9E9E', '#FF5722', '#8D6E63', '#673AB7',
+        '#3F51B5', '#03A9F4', '#00BCD4', '#CDDC39', '#FFEB3B', '#FFC107',
+        '#FF9800', '#FF5722', '#E91E63', '#9C27B0', '#673AB7', '#3F51B5',
+        '#2196F3', '#03A9F4', '#00BCD4', '#009688', '#4CAF50', '#8BC34A',
+        '#CDDC39', '#FFC107', '#FF9800', '#FF5722', '#795548', '#9E9E9E',
+        '#607D8B', '#263238', '#ECEFF1', '#CFD8DC', '#B0BEC5', '#90A4AE',
+        '#78909C', '#607D8B', '#546E7A', '#455A64', '#37474F', '#263238',
+        '#FFCDD2', '#F8BBD9', '#E1BEE7', '#D1C4E9', '#C5CAE9', '#BBDEFB',
+        '#B3E5FC', '#B2EBF2', '#B2DFDB', '#C8E6C9', '#DCEDC8', '#F0F4C3',
+        '#FFF9C4', '#FFECB3', '#FFE0B2', '#FFCCBC', '#D7CCC8', '#CFD8DC',
+    ]
+    
+    return render(request, 'cashback_category_edit.html', {
+        'category': category,
+        'icons': icons,
+        'colors': colors,
+    })

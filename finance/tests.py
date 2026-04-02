@@ -2296,10 +2296,11 @@ class BankViewWithNewCategoriesTest(TestCase):
     def test_bank_view_passes_available_categories_to_template(self):
         from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
         
+        today = timezone.now()
         month_obj = BankCashbackMonth.objects.create(
             bank=self.bank,
-            year=2026,
-            month=3
+            year=today.year,
+            month=today.month
         )
         # Create BankCashbackMonthCategory (month-specific config)
         BankCashbackMonthCategory.objects.create(
