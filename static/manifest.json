@@ -2,7 +2,7 @@
   "name": "Finance Manager",
   "short_name": "FinManager",
   "description": "Personal finance management application",
-  "start_url": "/",
+  "start_url": "/money/",
   "display": "standalone",
   "background_color": "#f8f9fa",
   "theme_color": "#ffffff",
