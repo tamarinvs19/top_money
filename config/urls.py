@@ -7,16 +7,31 @@ from django.http import FileResponse
 from finance import views
 
 
+from django.http import FileResponse, Http404
+
+
 def serve_manifest(request):
-    return FileResponse(open(settings.STATIC_ROOT / 'manifest.json', 'rb'), content_type='application/json')
+    static_root = settings.STATICFILES_DIRS[0]
+    path = static_root / 'manifest.json'
+    if not path.exists():
+        raise Http404('manifest.json not found')
+    return FileResponse(open(path, 'rb'), content_type='application/json')
 
 
 def serve_sw(request):
-    return FileResponse(open(settings.STATIC_ROOT / 'sw.js', 'rb'), content_type='application/javascript')
+    static_root = settings.STATICFILES_DIRS[0]
+    path = static_root / 'sw.js'
+    if not path.exists():
+        raise Http404('sw.js not found')
+    return FileResponse(open(path, 'rb'), content_type='application/javascript')
 
 
 def serve_favicon(request):
-    return FileResponse(open(settings.STATIC_ROOT / 'favicon.svg', 'rb'), content_type='image/svg+xml')
+    static_root = settings.STATICFILES_DIRS[0]
+    path = static_root / 'favicon.svg'
+    if not path.exists():
+        raise Http404('favicon.svg not found')
+    return FileResponse(open(path, 'rb'), content_type='image/svg+xml')
 
 
 urlpatterns = [
