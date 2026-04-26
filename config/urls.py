@@ -8,16 +8,24 @@ from finance import views
 
 
 def serve_manifest(request):
-    return FileResponse(open(settings.STATIC_ROOT / 'manifest.json', 'rb'), content_type='application/json')
+    import os
+    static_root = settings.STATIC_ROOT
+    manifest_path = static_root / 'manifest.json'
+    print(f"DEBUG: Serving manifest from {manifest_path}, exists: {os.path.exists(manifest_path)}")
+    return FileResponse(open(manifest_path, 'rb'), content_type='application/json')
 
 
 def serve_sw(request):
-    return FileResponse(open(settings.STATIC_ROOT / 'sw.js', 'rb'), content_type='application/javascript')
+    import os
+    static_root = settings.STATIC_ROOT
+    sw_path = static_root / 'sw.js'
+    print(f"DEBUG: Serving sw.js from {sw_path}, exists: {os.path.exists(sw_path)}")
+    return FileResponse(open(sw_path, 'rb'), content_type='application/javascript')
 
 
 urlpatterns = [
-    path('manifest.json', serve_manifest),
-    path('sw.js', serve_sw),
+    path('manifest.json', serve_manifest, name='serve_manifest'),
+    path('sw.js', serve_sw, name='serve_sw'),
     
     path('admin/', admin.site.urls),
     
