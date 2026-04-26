@@ -3,12 +3,21 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import RedirectView
+from django.http import FileResponse
 from finance import views
 
+
+def serve_manifest(request):
+    return FileResponse(open(settings.STATIC_ROOT / 'manifest.json', 'rb'), content_type='application/json')
+
+
+def serve_sw(request):
+    return FileResponse(open(settings.STATIC_ROOT / 'sw.js', 'rb'), content_type='application/javascript')
+
+
 urlpatterns = [
-    path('manifest.json', RedirectView.as_view(url='/static/manifest.json', permanent=False)),
-    path('sw.js', RedirectView.as_view(url='/static/sw.js', permanent=False)),
+    path('manifest.json', serve_manifest),
+    path('sw.js', serve_sw),
     
     path('admin/', admin.site.urls),
     
