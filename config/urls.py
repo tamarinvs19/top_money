@@ -1,34 +1,32 @@
+from pathlib import Path
 from django.contrib import admin
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import FileResponse
+from django.http import FileResponse, Http404
 from finance import views
 
-
-from django.http import FileResponse, Http404
+BASE_DIR = Path(__file__).resolve().parent.parent
+STATIC_DIR = BASE_DIR / 'static'
 
 
 def serve_manifest(request):
-    static_root = settings.STATICFILES_DIRS[0]
-    path = static_root / 'manifest.json'
+    path = STATIC_DIR / 'manifest.json'
     if not path.exists():
         raise Http404('manifest.json not found')
     return FileResponse(open(path, 'rb'), content_type='application/json')
 
 
 def serve_sw(request):
-    static_root = settings.STATICFILES_DIRS[0]
-    path = static_root / 'sw.js'
+    path = STATIC_DIR / 'sw.js'
     if not path.exists():
         raise Http404('sw.js not found')
     return FileResponse(open(path, 'rb'), content_type='application/javascript')
 
 
 def serve_favicon(request):
-    static_root = settings.STATICFILES_DIRS[0]
-    path = static_root / 'favicon.svg'
+    path = STATIC_DIR / 'favicon.svg'
     if not path.exists():
         raise Http404('favicon.svg not found')
     return FileResponse(open(path, 'rb'), content_type='image/svg+xml')
