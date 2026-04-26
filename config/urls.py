@@ -7,36 +7,8 @@ from django.conf.urls.static import static
 from django.http import FileResponse, Http404
 from finance import views
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-STATIC_DIR = BASE_DIR / 'static'
-
-
-def serve_manifest(request):
-    path = STATIC_DIR / 'manifest.json'
-    if not path.exists():
-        raise Http404('manifest.json not found')
-    return FileResponse(open(path, 'rb'), content_type='application/json')
-
-
-def serve_sw(request):
-    path = STATIC_DIR / 'sw.js'
-    if not path.exists():
-        raise Http404('sw.js not found')
-    return FileResponse(open(path, 'rb'), content_type='application/javascript')
-
-
-def serve_favicon(request):
-    path = STATIC_DIR / 'favicon.svg'
-    if not path.exists():
-        raise Http404('favicon.svg not found')
-    return FileResponse(open(path, 'rb'), content_type='image/svg+xml')
-
 
 urlpatterns = [
-    path('manifest.json', serve_manifest, name='serve_manifest'),
-    path('sw.js', serve_sw, name='serve_sw'),
-    path('favicon.svg', serve_favicon, name='serve_favicon'),
-    
     path('admin/', admin.site.urls),
     
     path('', views.transactions, name='transactions'),
