@@ -8,24 +8,21 @@ from finance import views
 
 
 def serve_manifest(request):
-    import os
-    static_root = settings.STATIC_ROOT
-    manifest_path = static_root / 'manifest.json'
-    print(f"DEBUG: Serving manifest from {manifest_path}, exists: {os.path.exists(manifest_path)}")
-    return FileResponse(open(manifest_path, 'rb'), content_type='application/json')
+    return FileResponse(open(settings.STATIC_ROOT / 'manifest.json', 'rb'), content_type='application/json')
 
 
 def serve_sw(request):
-    import os
-    static_root = settings.STATIC_ROOT
-    sw_path = static_root / 'sw.js'
-    print(f"DEBUG: Serving sw.js from {sw_path}, exists: {os.path.exists(sw_path)}")
-    return FileResponse(open(sw_path, 'rb'), content_type='application/javascript')
+    return FileResponse(open(settings.STATIC_ROOT / 'sw.js', 'rb'), content_type='application/javascript')
+
+
+def serve_favicon(request):
+    return FileResponse(open(settings.STATIC_ROOT / 'favicon.svg', 'rb'), content_type='image/svg+xml')
 
 
 urlpatterns = [
     path('manifest.json', serve_manifest, name='serve_manifest'),
     path('sw.js', serve_sw, name='serve_sw'),
+    path('favicon.svg', serve_favicon, name='serve_favicon'),
     
     path('admin/', admin.site.urls),
     
