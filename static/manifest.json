@@ -1,0 +1,17 @@
+{
+  "name": "Finance Manager",
+  "short_name": "FinManager",
+  "description": "Personal finance management application",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
