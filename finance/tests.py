@@ -1762,7 +1762,7 @@ class BankCashbackViewTest(TestCase):
         response = self.client.get(f'/bank/{self.bank.pk}/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Products')
-        self.assertContains(response, '5.00%')
+        self.assertContains(response, '5.0%')
 
     def test_cashback_edit_limits(self):
         from finance.models import BankCashbackMonth
@@ -2327,8 +2327,98 @@ class BankViewWithNewCategoriesTest(TestCase):
         
         response = self.client.get(f'/bank/{self.bank.pk}/')
         self.assertEqual(response.status_code, 200)
-        
+
         # Check current_available is in context
         self.assertIn('current_available', response.context)
         self.assertEqual(len(response.context['current_available']), 2)
+
+    def test_bank_view_shows_saved_percent_in_form(self):
+        """Test that month category form shows saved percent instead of default 1%."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
+
+        today = timezone.now()
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        # Create month-specific category with custom percent
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('7.5'),
+            limit=Decimal('5000')
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat2,
+            percent=Decimal('2.0')
+        )
+        # Create BankCashbackCategory (bank-level)
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('7.5')
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat2,
+            percent=Decimal('2.0')
+        )
+
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        # Check that form inputs have saved values with one decimal (floatformat:1)
+        self.assertIn('value="7.5"', content)
+        self.assertIn('value="2.0"', content)
+        # Check that the current config modal has the correct values for checked categories
+        import re
+        modal_match = re.search(r'id="currentConfigModal".*?id="nextConfigModal"', content, re.DOTALL)
+        self.assertIsNotNone(modal_match, "Current config modal not found")
+        modal_content = modal_match.group(0)
+        # In the current month modal, cat1 and cat2 are checked, so they should have their saved values
+        self.assertIn('value="7.5"', modal_content)
+        self.assertIn('value="2.0"', modal_content)
+
+    def test_bank_view_form_percent_matches_database(self):
+        """Integration test: saved percent in DB appears in the form."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
+
+        today = timezone.now()
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        saved_percent = Decimal('12.5')
+        saved_limit = Decimal('10000')
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=saved_percent,
+            limit=saved_limit
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=saved_percent
+        )
+
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        # The form should contain the saved percent value with one decimal (floatformat:1)
+        self.assertIn('value="12.5"', content)
+        # Check that limit is also present (Django renders Decimal as 10000.00)
+        self.assertIn('value="10000.00"', content)
+        # Make sure default 1.0 is not present for the saved category
+        import re
+        modal_match = re.search(r'id="currentConfigModal".*?id="nextConfigModal"', content, re.DOTALL)
+        self.assertIsNotNone(modal_match)
+        modal_content = modal_match.group(0)
+        # The cat1 is checked, so it should have 12.5, not 1.0
+        self.assertIn('value="12.5"', modal_content)
 

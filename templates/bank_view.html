@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load finance_extras %}
 {% block title %}{{ bank.name }} - Finance Manager{% endblock %}
 {% block content %}
 <div class="d-flex align-items-center mb-4">
@@ -83,7 +84,7 @@
               <span>{{ cat.category.name }}</span>
             </div>
             <div class="d-flex align-items-center">
-              <span class="badge bg-primary me-2">{{ cat.percent }}%</span>
+              <span class="badge bg-primary me-2">{{ cat.percent|floatformat:1 }}%</span>
               <button type="button" class="btn btn-sm btn-outline-danger toggle-category" 
                       data-cat-id="{{ cat.pk }}" data-action="remove" data-month="current">✕</button>
             </div>
@@ -104,7 +105,7 @@
               <span>{{ cat.category.name }}</span>
             </div>
             <div class="d-flex align-items-center">
-              <span class="badge bg-secondary me-2">{{ cat.percent }}%</span>
+              <span class="badge bg-secondary me-2">{{ cat.percent|floatformat:1 }}%</span>
               <button type="button" class="btn btn-sm btn-outline-success toggle-category" 
                       data-cat-id="{{ cat.pk }}" data-action="add" data-month="current">+</button>
             </div>
@@ -164,7 +165,7 @@
               <span>{{ cat.category.name }}</span>
             </div>
             <div class="d-flex align-items-center">
-              <span class="badge bg-primary me-2">{{ cat.percent }}%</span>
+              <span class="badge bg-primary me-2">{{ cat.percent|floatformat:1 }}%</span>
               <button type="button" class="btn btn-sm btn-outline-danger toggle-category" 
                       data-cat-id="{{ cat.pk }}" data-action="remove" data-month="next">✕</button>
             </div>
@@ -185,7 +186,7 @@
               <span>{{ cat.category.name }}</span>
             </div>
             <div class="d-flex align-items-center">
-              <span class="badge bg-secondary me-2">{{ cat.percent }}%</span>
+              <span class="badge bg-secondary me-2">{{ cat.percent|floatformat:1 }}%</span>
               <button type="button" class="btn btn-sm btn-outline-success toggle-category" 
                       data-cat-id="{{ cat.pk }}" data-action="add" data-month="next">+</button>
             </div>
@@ -241,38 +242,40 @@
           
           <!-- Categories list for mobile -->
           <div class="category-list">
-            {% for cat in all_cashback_categories %}
-            <div class="category-item d-flex align-items-center py-2 border-bottom">
-              <div class="form-check me-3">
-                <input type="checkbox" name="category_ids[]" value="{{ cat.pk }}" 
-                       class="form-check-input category-checkbox category-checkbox-lg"
-                       id="current_cat_{{ cat.pk }}"
-                       {% if cat.pk in current_month_category_ids %}checked{% endif %}>
-              </div>
-              <div class="d-flex align-items-center flex-grow-1">
-                {% if cat.image %}
-                <img src="{% static cat.image %}" alt="{{ cat.name }}" style="width: 32px; height: 32px; margin-right: 10px;">
-                {% endif %}
-                <span class="category-name">{{ cat.name }}</span>
-              </div>
-              <div class="d-flex align-items-center gap-2">
-                <div class="input-group input-group-sm" style="width: 90px;">
-                  <input type="number" name="percent_{{ cat.pk }}" 
-                         class="form-control text-end percent-input" 
-                         step="0.1" min="0" max="100" value="1.0"
-                         title="Cashback percentage"
-                         {% if cat.pk not in current_month_category_ids %}disabled{% endif %}>
-                  <span class="input-group-text" title="Cashback percentage">%</span>
-                </div>
-                <input type="number" name="limit_{{ cat.pk }}" 
-                       class="form-control form-control-sm text-end limit-input" 
-                       style="width: 80px;"
-                       step="1" min="0" placeholder="Limit"
-                       title="Monthly limit (optional)"
-                       {% if cat.pk not in current_month_category_ids %}disabled{% endif %}>
-              </div>
-            </div>
-            {% endfor %}
+             {% for cat in all_cashback_categories %}
+             <div class="category-item d-flex align-items-center py-2 border-bottom">
+               <div class="form-check me-3">
+                 <input type="checkbox" name="category_ids[]" value="{{ cat.pk }}"
+                        class="form-check-input category-checkbox category-checkbox-lg"
+                        id="current_cat_{{ cat.pk }}"
+                        {% if cat.pk in current_month_category_ids %}checked{% endif %}>
+               </div>
+               <div class="d-flex align-items-center flex-grow-1">
+                 {% if cat.image %}
+                 <img src="{% static cat.image %}" alt="{{ cat.name }}" style="width: 32px; height: 32px; margin-right: 10px;">
+                 {% endif %}
+                 <span class="category-name">{{ cat.name }}</span>
+               </div>
+               <div class="d-flex align-items-center gap-2">
+                 <div class="input-group input-group-sm" style="width: 90px;">
+                   <input type="number" name="percent_{{ cat.pk }}"
+                          class="form-control text-end percent-input"
+                          step="0.1" min="0" max="100"
+                          value="{% if cat.pk in current_month_category_values %}{{ current_month_category_values|get_item:cat.pk|get_item:'percent'|floatformat:1 }}{% else %}1.0{% endif %}"
+                          title="Cashback percentage"
+                          {% if cat.pk not in current_month_category_ids %}disabled{% endif %}>
+                   <span class="input-group-text" title="Cashback percentage">%</span>
+                 </div>
+                 <input type="number" name="limit_{{ cat.pk }}"
+                        class="form-control form-control-sm text-end limit-input"
+                        style="width: 80px;"
+                        step="1" min="0" placeholder="Limit"
+                        value="{% if cat.pk in current_month_category_values and current_month_category_values|get_item:cat.pk|get_item:'limit' %}{{ current_month_category_values|get_item:cat.pk|get_item:'limit' }}{% endif %}"
+                        title="Monthly limit (optional)"
+                        {% if cat.pk not in current_month_category_ids %}disabled{% endif %}>
+               </div>
+             </div>
+             {% endfor %}
           </div>
         </form>
       </div>
@@ -331,17 +334,19 @@
               </div>
               <div class="d-flex align-items-center gap-2">
                 <div class="input-group input-group-sm" style="width: 90px;">
-                  <input type="number" name="percent_{{ cat.pk }}" 
-                         class="form-control text-end next-percent-input" 
-                         step="0.1" min="0" max="100" value="1.0"
+                  <input type="number" name="percent_{{ cat.pk }}"
+                         class="form-control text-end next-percent-input"
+                         step="0.1" min="0" max="100"
+                         value="{% if cat.pk in next_month_category_values %}{{ next_month_category_values|get_item:cat.pk|get_item:'percent'|floatformat:1 }}{% else %}1.0{% endif %}"
                          title="Cashback percentage"
                          {% if cat.pk not in next_month_category_ids %}disabled{% endif %}>
                   <span class="input-group-text" title="Cashback percentage">%</span>
                 </div>
-                <input type="number" name="limit_{{ cat.pk }}" 
-                       class="form-control form-control-sm text-end next-limit-input" 
+                <input type="number" name="limit_{{ cat.pk }}"
+                       class="form-control form-control-sm text-end next-limit-input"
                        style="width: 80px;"
                        step="1" min="0" placeholder="Limit"
+                       value="{% if cat.pk in next_month_category_values %}{{ next_month_category_values|get_item:cat.pk|get_item:'limit' }}{% endif %}"
                        title="Monthly limit (optional)"
                        {% if cat.pk not in next_month_category_ids %}disabled{% endif %}>
               </div>

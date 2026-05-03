@@ -907,11 +907,11 @@ def bank_view(request, pk):
     def get_month_data(month_obj):
         """Get selected and available categories for a specific month."""
         if not month_obj:
-            return None, [], [], set()
+            return None, [], [], {}, {}
         
         # Get selections for this month
         selections = BankCashbackSelection.objects.filter(
-            bank_cashback_month=month_obj, 
+            bank_cashback_month=month_obj,
             is_selected=True
         ).select_related('bank_cashback_category__category')
         
@@ -920,21 +920,28 @@ def bank_view(request, pk):
         # Selected bank cashback categories
         selected = [s.bank_cashback_category for s in selections]
         
-        # Get BankCashbackCategory objects for this bank
-        # First try to find ones that match month categories
-        month_categories = BankCashbackMonthCategory.objects.filter(
+        # Get month-specific category configs
+        month_cat_configs = BankCashbackMonthCategory.objects.filter(
             bank_cashback_month=month_obj
-        ).values_list('category_id', flat=True)
+        )
+        month_category_ids = {}
+        month_category_values = {}
+        for mc in month_cat_configs:
+            month_category_ids[mc.category_id] = True
+            month_category_values[mc.category_id] = {
+                'percent': mc.percent,
+                'limit': mc.limit
+            }
         
         # Available: BankCashbackCategory objects for this bank that are not selected
         available = BankCashbackCategory.objects.filter(
             bank=bank
         ).exclude(id__in=selected_ids).select_related('category')
         
-        return month_obj, selected, list(available), set(month_categories)
+        return month_obj, selected, list(available), month_category_ids, month_category_values
 
-    current_month_obj, current_selected, current_available, current_month_cat_ids = get_month_data(current_month_obj)
-    next_month_obj, next_selected, next_available, next_month_cat_ids = get_month_data(next_month_obj)
+    current_month_obj, current_selected, current_available, current_month_cat_ids, current_month_cat_values = get_month_data(current_month_obj)
+    next_month_obj, next_selected, next_available, next_month_cat_ids, next_month_cat_values = get_month_data(next_month_obj)
 
     # Get all cashback categories for the modal
     all_cashback_categories = CashbackCategory.objects.all()
@@ -954,6 +961,8 @@ def bank_view(request, pk):
         'next_available': next_available,
         'current_month_category_ids': current_month_cat_ids,
         'next_month_category_ids': next_month_cat_ids,
+        'current_month_category_values': current_month_cat_values,
+        'next_month_category_values': next_month_cat_values,
         'all_cashback_categories': all_cashback_categories,
     })
 
