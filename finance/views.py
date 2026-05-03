@@ -1232,12 +1232,20 @@ def bank_save_categories(request, pk, year, month):
     if request.method == 'POST':
         # Get the list of category IDs from the form
         category_ids = request.POST.getlist('category_ids[]')
-        
+
         # First, remove categories not in the list
-        BankCashbackMonthCategory.objects.filter(
+        removed_categories = BankCashbackMonthCategory.objects.filter(
             bank_cashback_month=cashback_month
-        ).exclude(category_id__in=category_ids).delete()
-        
+        ).exclude(category_id__in=category_ids)
+        # Also remove corresponding selections for removed categories
+        removed_cat_ids = [rc.category_id for rc in removed_categories]
+        if removed_cat_ids:
+            BankCashbackSelection.objects.filter(
+                bank_cashback_month=cashback_month,
+                bank_cashback_category__category_id__in=removed_cat_ids
+            ).delete()
+        removed_categories.delete()
+
         # Then create/update the selected categories
         for cat_id in category_ids:
             category = get_object_or_404(CashbackCategory, pk=cat_id)

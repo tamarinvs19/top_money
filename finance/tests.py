@@ -2422,3 +2422,193 @@ class BankViewWithNewCategoriesTest(TestCase):
         # The cat1 is checked, so it should have 12.5, not 1.0
         self.assertIn('value="12.5"', modal_content)
 
+    def test_uncheck_category_removes_from_month_categories(self):
+        """Test that unchecking a category in the form removes it from BankCashbackMonthCategory."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
+
+        today = timezone.now()
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        # Create two month-specific categories
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat2,
+            percent=Decimal('3.0')
+        )
+        # Create bank-level categories
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat2,
+            percent=Decimal('3.0')
+        )
+
+        # Verify both categories exist
+        self.assertEqual(BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj).count(), 2)
+
+        # Uncheck cat1 (only send cat2 in category_ids[])
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [str(self.cat2.pk)],
+                f'percent_{self.cat2.pk}': '3.0',
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+
+        # Verify cat1 was removed from month categories
+        self.assertEqual(BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj).count(), 1)
+        remaining = BankCashbackMonthCategory.objects.get(bank_cashback_month=month_obj)
+        self.assertEqual(remaining.category, self.cat2)
+
+    def test_uncheck_category_makes_it_available(self):
+        """Test that after unchecking, category appears in Available section (not Selected)."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
+
+        today = timezone.now()
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        # Create month-specific category for cat1
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+
+        # Uncheck cat1 (send empty category_ids[])
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [],
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+
+        # Verify cat1 was removed from month categories
+        self.assertEqual(BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj).count(), 0)
+
+        # Check that the bank view now shows cat1 as "Available"
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # cat1 should be in the Available categories section
+        self.assertIn('Available categories', content)
+        self.assertIn('Products', content)
+
+    def test_bank_view_shows_corect_checkbox_state(self):
+        """Test that the config modal shows correct checkbox state based on month categories."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
+
+        today = timezone.now()
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        # Only cat1 is in month categories (checked), cat2 is not (unchecked)
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat2,
+            percent=Decimal('3.0')
+        )
+
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+
+        import re
+        modal_match = re.search(r'id="currentConfigModal".*?id="nextConfigModal"', content, re.DOTALL)
+        self.assertIsNotNone(modal_match)
+        modal_content = modal_match.group(0)
+
+        # cat1 checkbox should be checked
+        self.assertIn('id="current_cat_1"\n                        checked>', modal_content)
+        # cat2 checkbox should NOT be checked
+        self.assertNotIn('id="current_cat_2"\n                        checked>', modal_content)
+
+    def test_uncheck_category_removes_selection(self):
+        """Test that unchecking a category removes it from BankCashbackSelection too."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory, BankCashbackSelection
+
+        today = timezone.now()
+        month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=today.year,
+            month=today.month
+        )
+        # Create month category for cat1
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=month_obj,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        # Create bank-level category
+        bank_cat = BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        # Create selection (cat1 is selected)
+        BankCashbackSelection.objects.create(
+            bank_cashback_month=month_obj,
+            bank_cashback_category=bank_cat,
+            is_selected=True
+        )
+
+        # Verify selection exists
+        self.assertEqual(BankCashbackSelection.objects.filter(
+            bank_cashback_month=month_obj,
+            is_selected=True
+        ).count(), 1)
+
+        # Uncheck cat1 (send empty category_ids[])
+        response = self.client.post(
+            f'/bank/{self.bank.pk}/cashback/{today.year}/{today.month}/save/',
+            {
+                'category_ids[]': [],
+            }
+        )
+        self.assertEqual(response.status_code, 302)
+
+        # Verify selection was also removed
+        self.assertEqual(BankCashbackSelection.objects.filter(
+            bank_cashback_month=month_obj,
+            is_selected=True
+        ).count(), 0)
+
+        # Check that the main page no longer shows cat1 as "Selected"
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        self.assertNotIn('Selected categories', content)
+
