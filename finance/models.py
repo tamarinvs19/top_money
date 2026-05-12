@@ -429,7 +429,7 @@ class Transaction(models.Model):
         null=True
     )
     to_asset_rate = models.DecimalField(max_digits=15, decimal_places=6, default=Decimal('1'))
-    commission_rate = models.DecimalField(max_digits=5, decimal_places=4, default=Decimal('0'))
+    commission_rate = models.DecimalField(max_digits=15, decimal_places=4, default=Decimal('0'))
     commission_type = models.CharField(
         max_length=10,
         choices=CommissionType.choices,
