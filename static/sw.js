@@ -1,7 +1,7 @@
 const CACHE_NAME = 'finmanager-v1';
 const STATIC_ASSETS = [
   '/',
-  '/manifest.json',
+  '/static/manifest.json',
   '/static/favicon.svg',
 ];
 
@@ -54,7 +54,11 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => caches.match('/'));
+        .catch(() => {
+          return caches.match('/').then((fallback) => {
+            return fallback || new Response('Offline', { status: 503 });
+          });
+        });
     })
   );
 });
