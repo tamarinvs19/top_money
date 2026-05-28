@@ -4,11 +4,19 @@ from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from finance import views
 
 
+def service_worker(request):
+    sw_path = settings.BASE_DIR / 'static' / 'sw.js'
+    with open(sw_path, 'rb') as f:
+        content = f.read()
+    return HttpResponse(content, content_type='application/javascript')
+
+
 urlpatterns = [
+    path('sw.js', service_worker, name='service_worker'),
     path('admin/', admin.site.urls),
     
     path('', views.transactions, name='transactions'),

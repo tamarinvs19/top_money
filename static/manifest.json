@@ -3,6 +3,7 @@
   "short_name": "FinManager",
   "description": "Personal finance management application",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f8f9fa",
   "theme_color": "#ffffff",
