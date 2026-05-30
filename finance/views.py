@@ -3,6 +3,7 @@ from django.utils.timezone import make_aware
 from datetime import datetime, timedelta
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
@@ -172,7 +173,8 @@ def transaction_add(request, year=None, month=None, day=None):
             commission_type=commission_type,
         )
         
-        return redirect('transactions')
+        url = reverse('transactions_month', kwargs={'year': date.year, 'month': date.month})
+        return redirect(f'{url}#day-{date.strftime("%Y-%m-%d")}')
     
     return render(request, 'transaction_form.html', {
         'assets': assets,

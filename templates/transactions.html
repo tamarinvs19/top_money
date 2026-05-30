@@ -42,7 +42,7 @@
 
 {% for day, day_data in transactions_by_day.items %}
 <div class="card mb-2">
-  <div class="card-body day-header p-2" onclick="window.location='{% url 'transaction_add_day' year month day.day %}'">
+  <div class="card-body day-header p-2" id="day-{{ day|date:'Y-m-d' }}" onclick="window.location='{% url 'transaction_add_day' year month day.day %}'">
     <div class="d-flex justify-content-between align-items-center">
       <strong>{{ day|date:"l, M d" }}</strong>
       <span class="{% if day_data.day_total >= 0 %}text-success{% else %}text-danger{% endif %}">
