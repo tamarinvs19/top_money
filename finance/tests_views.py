@@ -133,7 +133,7 @@ class TransactionViewsTest(TestCase):
             'to_asset': self.asset.pk,
         })
         self.assertTrue(Transaction.objects.filter(amount=Decimal('3000.00')).exists())
-        self.assertRedirects(response, reverse('transactions'))
+        self.assertRedirects(response, reverse('transactions_month', args=[2026, 2]) + '#day-2026-02-18')
     
     def test_transaction_add_with_year_month_day(self):
         url = reverse('transaction_add_day', args=[2026, 2, 15])
