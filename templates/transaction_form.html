@@ -10,6 +10,13 @@
         <form method="post">
           {% csrf_token %}
           <div class="mb-3">
+            <label class="form-label">Date</label>
+            <div class="d-flex gap-2">
+              <input type="date" name="date" class="form-control" value="{{ transaction.date|date:'Y-m-d'|default:initial_date }}" required />
+              <input type="time" name="time" class="form-control" value="{{ transaction.date|time:'H:i'|default:initial_time }}" required />
+            </div>
+          </div>
+          <div class="mb-3">
             <label class="form-label">Type</label>
             <select name="type" class="form-select" id="typeSelect" onchange="toggleFields()" {% if transaction %}disabled{% endif %}>
               {% if transaction %}
@@ -22,6 +29,30 @@
             </select>
             {% if transaction %}<input type="hidden" name="type" value="{{ transaction.type }}" />{% endif %}
           </div>
+          <div class="mb-3" id="fromAssetGroup">
+            <label class="form-label">From Asset</label>
+            <div class="d-flex gap-2">
+              <select name="from_asset" class="form-select" id="fromAssetSelect" onchange="updateRate('from')">
+                <option value="">-- Select --</option>
+                {% for asset in assets %}
+                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" data-bank-name="{{ asset.bank_name }}" {% if asset.bank and asset.bank.image %}data-bank-image="{% static asset.bank.image %}"{% endif %} data-provider-name="{{ asset.provider_name }}" {% if asset.provider and asset.provider.image %}data-provider-image="{% static asset.provider.image %}"{% endif %} {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
+                {% endfor %}
+              </select>
+              <input type="number" step="0.000001" name="from_asset_rate" class="form-control" style="width: 120px;" id="fromAssetRate" value="{% if transaction.from_asset_rate %}{{ transaction.from_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
+            </div>
+          </div>
+          <div class="mb-3" id="toAssetGroup">
+            <label class="form-label">To Asset</label>
+            <div class="d-flex gap-2">
+              <select name="to_asset" class="form-select" id="toAssetSelect" onchange="updateRate('to')">
+                <option value="">-- Select --</option>
+                {% for asset in assets %}
+                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" data-bank-name="{{ asset.bank_name }}" {% if asset.bank and asset.bank.image %}data-bank-image="{% static asset.bank.image %}"{% endif %} data-provider-name="{{ asset.provider_name }}" {% if asset.provider and asset.provider.image %}data-provider-image="{% static asset.provider.image %}"{% endif %} {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
+                {% endfor %}
+              </select>
+              <input type="number" step="0.000001" name="to_asset_rate" class="form-control" style="width: 120px;" id="toAssetRate" value="{% if transaction.to_asset_rate %}{{ transaction.to_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
+            </div>
+          </div>
           <div class="mb-3">
             <label class="form-label">Amount</label>
             <div class="d-flex gap-2">
@@ -32,25 +63,6 @@
                 <option value="EUR" {% if transaction.currency == 'EUR' %}selected{% endif %}>€</option>
                 <option value="CNY" {% if transaction.currency == 'CNY' %}selected{% endif %}>¥</option>
               </select>
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Commission</label>
-            <div class="d-flex gap-2">
-              <input type="number" step="0.01" name="commission_rate" class="form-control" value="{% if transaction.commission_rate %}{{ transaction.commission_rate|floatformat:4 }}{% else %}0{% endif %}" />
-              <div class="btn-group" role="group" aria-label="Commission type">
-                <input type="radio" class="btn-check" name="commission_type" id="commission_percent" value="PERCENT" {% if not transaction or transaction.commission_type == 'PERCENT' %}checked{% endif %} onchange="updateCommissionSymbol()" />
-                <label class="btn btn-outline-secondary" for="commission_percent">%</label>
-                <input type="radio" class="btn-check" name="commission_type" id="commission_absolute" value="ABSOLUTE" {% if transaction.commission_type == 'ABSOLUTE' %}checked{% endif %} onchange="updateCommissionSymbol()" />
-                <label class="btn btn-outline-secondary" for="commission_absolute" id="commission_currency_symbol">₽</label>
-              </div>
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Date</label>
-            <div class="d-flex gap-2">
-              <input type="date" name="date" class="form-control" value="{{ transaction.date|date:'Y-m-d'|default:initial_date }}" required />
-              <input type="time" name="time" class="form-control" value="{{ transaction.date|time:'H:i'|default:initial_time }}" required />
             </div>
           </div>
           <div class="mb-3" id="wasteCategoryGroup">
@@ -75,28 +87,20 @@
             <label class="form-label">Description</label>
             <textarea name="description" class="form-control" rows="2">{{ transaction.description|default:'' }}</textarea>
           </div>
-          <div class="mb-3" id="fromAssetGroup">
-            <label class="form-label">From Asset</label>
-            <div class="d-flex gap-2">
-              <select name="from_asset" class="form-select" id="fromAssetSelect" onchange="updateRate('from')">
-                <option value="">-- Select --</option>
-                {% for asset in assets %}
-                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" data-bank-name="{{ asset.bank_name }}" {% if asset.bank and asset.bank.image %}data-bank-image="{% static asset.bank.image %}"{% endif %} data-provider-name="{{ asset.provider_name }}" {% if asset.provider and asset.provider.image %}data-provider-image="{% static asset.provider.image %}"{% endif %} {% if transaction and transaction.from_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
-                {% endfor %}
-              </select>
-              <input type="number" step="0.000001" name="from_asset_rate" class="form-control" style="width: 120px;" id="fromAssetRate" value="{% if transaction.from_asset_rate %}{{ transaction.from_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
-            </div>
+          <div class="mb-3 form-check">
+            <input type="checkbox" name="exclude_from_stats" class="form-check-input" id="excludeFromStats" {% if transaction.exclude_from_stats %}checked{% endif %} />
+            <label class="form-check-label" for="excludeFromStats">Skip in statistics</label>
           </div>
-          <div class="mb-3" id="toAssetGroup">
-            <label class="form-label">To Asset</label>
+          <div class="mb-3">
+            <label class="form-label">Commission</label>
             <div class="d-flex gap-2">
-              <select name="to_asset" class="form-select" id="toAssetSelect" onchange="updateRate('to')">
-                <option value="">-- Select --</option>
-                {% for asset in assets %}
-                <option value="{{ asset.pk }}" data-currency="{{ asset.currency }}" data-bank-name="{{ asset.bank_name }}" {% if asset.bank and asset.bank.image %}data-bank-image="{% static asset.bank.image %}"{% endif %} data-provider-name="{{ asset.provider_name }}" {% if asset.provider and asset.provider.image %}data-provider-image="{% static asset.provider.image %}"{% endif %} {% if transaction and transaction.to_asset_id == asset.pk %}selected{% endif %}>{{ asset }} ({{ asset.currency }})</option>
-                {% endfor %}
-              </select>
-              <input type="number" step="0.000001" name="to_asset_rate" class="form-control" style="width: 120px;" id="toAssetRate" value="{% if transaction.to_asset_rate %}{{ transaction.to_asset_rate|floatformat:6 }}{% else %}1{% endif %}" />
+              <input type="number" step="0.01" name="commission_rate" class="form-control" value="{% if transaction.commission_rate %}{{ transaction.commission_rate|floatformat:4 }}{% else %}0{% endif %}" />
+              <div class="btn-group" role="group" aria-label="Commission type">
+                <input type="radio" class="btn-check" name="commission_type" id="commission_percent" value="PERCENT" {% if not transaction or transaction.commission_type == 'PERCENT' %}checked{% endif %} onchange="updateCommissionSymbol()" />
+                <label class="btn btn-outline-secondary" for="commission_percent">%</label>
+                <input type="radio" class="btn-check" name="commission_type" id="commission_absolute" value="ABSOLUTE" {% if transaction.commission_type == 'ABSOLUTE' %}checked{% endif %} onchange="updateCommissionSymbol()" />
+                <label class="btn btn-outline-secondary" for="commission_absolute" id="commission_currency_symbol">₽</label>
+              </div>
             </div>
           </div>
           <div class="d-flex justify-content-between align-items-center">

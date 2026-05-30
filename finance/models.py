@@ -437,6 +437,7 @@ class Transaction(models.Model):
     )
     category = models.CharField(max_length=30, choices=WasteCategory.choices + RefillCategory.choices, blank=True)
     description = models.TextField(blank=True)
+    exclude_from_stats = models.BooleanField(default=False)
     date = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 

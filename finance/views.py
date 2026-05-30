@@ -164,6 +164,7 @@ def transaction_add(request, year=None, month=None, day=None):
             currency=currency,
             category=category,
             description=description,
+            exclude_from_stats=request.POST.get('exclude_from_stats') == 'on',
             date=date,
             from_asset_id=from_asset_id if from_asset_id else None,
             from_asset_rate=from_asset_rate,
@@ -212,6 +213,7 @@ def transaction_edit(request, pk):
         transaction.to_asset_rate = to_asset_rate
         transaction.commission_rate = commission_rate
         transaction.commission_type = commission_type
+        transaction.exclude_from_stats = request.POST.get('exclude_from_stats') == 'on'
         transaction.save()
         
         return redirect('transactions')
@@ -513,7 +515,7 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
         user=request.user,
         date__gte=start_date,
         date__lte=end_date
-    ).exclude(type=TransactionType.CHANGING_BALANCE)
+    ).exclude(type=TransactionType.CHANGING_BALANCE).exclude(exclude_from_stats=True)
     
     income_by_category = {}
     outcome_by_category = {}
