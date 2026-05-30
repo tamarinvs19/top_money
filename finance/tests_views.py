@@ -609,7 +609,7 @@ class TransactionDeleteViewTest(TestCase):
         )
         url = reverse('transaction_delete', args=[transaction.pk])
         response = self.client.post(url)
-        self.assertRedirects(response, reverse('transactions'))
+        self.assertRedirects(response, reverse('transactions_month', args=[transaction.date.year, transaction.date.month]) + f'#day-{transaction.date.strftime("%Y-%m-%d")}')
         self.assertFalse(Transaction.objects.filter(pk=transaction.pk).exists())
     
     def test_transaction_delete_other_user_forbidden(self):

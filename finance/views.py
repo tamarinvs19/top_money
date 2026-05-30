@@ -177,6 +177,7 @@ def transaction_add(request, year=None, month=None, day=None):
         url = reverse('transactions_month', kwargs={'year': date.year, 'month': date.month})
         return redirect(f'{url}#day-{date.strftime("%Y-%m-%d")}')
     
+    cancel_url = reverse('transactions_month', kwargs={'year': initial_date.year, 'month': initial_date.month})
     return render(request, 'transaction_form.html', {
         'assets': assets,
         'transaction_types': [t for t in TransactionType.choices if t[0] != TransactionType.CHANGING_BALANCE],
@@ -184,6 +185,7 @@ def transaction_add(request, year=None, month=None, day=None):
         'refill_categories': RefillCategory.choices,
         'initial_date': initial_date.strftime('%Y-%m-%d'),
         'initial_time': initial_date.strftime('%H:%M'),
+        'cancel_url': f'{cancel_url}#day-{initial_date.strftime("%Y-%m-%d")}',
     })
 
 
@@ -216,8 +218,10 @@ def transaction_edit(request, pk):
         transaction.exclude_from_stats = request.POST.get('exclude_from_stats') == 'on'
         transaction.save()
         
-        return redirect('transactions')
+        url = reverse('transactions_month', kwargs={'year': transaction.date.year, 'month': transaction.date.month})
+        return redirect(f'{url}#day-{transaction.date.strftime("%Y-%m-%d")}')
     
+    cancel_url = reverse('transactions_month', kwargs={'year': transaction.date.year, 'month': transaction.date.month})
     return render(request, 'transaction_form.html', {
         'transaction': transaction,
         'assets': assets,
@@ -226,6 +230,7 @@ def transaction_edit(request, pk):
         'refill_categories': RefillCategory.choices,
         'initial_date': transaction.date.strftime('%Y-%m-%d'),
         'initial_time': transaction.date.strftime('%H:%M'),
+        'cancel_url': f'{cancel_url}#day-{transaction.date.strftime("%Y-%m-%d")}',
     })
 
 
@@ -836,8 +841,10 @@ def import_transactions(request):
 def transaction_delete(request, pk):
     transaction = get_object_or_404(Transaction, pk=pk, user=request.user)
     if request.method == 'POST':
+        t_date = transaction.date
         transaction.delete()
-        return redirect('transactions')
+        url = reverse('transactions_month', kwargs={'year': t_date.year, 'month': t_date.month})
+        return redirect(f'{url}#day-{t_date.strftime("%Y-%m-%d")}')
     return HttpResponse(f"Delete transaction: {transaction.id}")
 
 

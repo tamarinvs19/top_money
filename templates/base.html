@@ -20,8 +20,16 @@
       }
       @media (max-width: 991px) {
         body {
-          padding-bottom: 50px;
+          padding-bottom: 56px;
         }
+      }
+      html, body { height: 100%; }
+      .navbar.fixed-bottom {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1030;
       }
       .card {
         border: none;
@@ -131,6 +139,15 @@
 <style>
 .select2-container {
     width: 100% !important;
+    min-width: 0;
+}
+.select2-selection {
+    overflow: hidden;
+}
+.select2-selection__rendered {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 .select2-container .select2-selection--single {
     height: calc(1.5em + 0.75rem + 2px);
