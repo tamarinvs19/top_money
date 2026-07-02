@@ -2914,6 +2914,78 @@ class CashbackOverviewViewTest(TestCase):
         response = self.client.get(f'/cashback/{next_year}/{next_month}/')
         self.assertEqual(response.status_code, 200)
 
+    def test_cashback_overview_available_does_not_include_other_months(self):
+        """Test that overview available categories don't include categories from other months."""
+        from finance.models import BankCashbackCategory, BankCashbackMonth, BankCashbackMonthCategory, BankCashbackSelection, CashbackCategory
+        from datetime import datetime
+
+        today = datetime.now()
+        year = today.year
+        month = today.month
+
+        if month == 12:
+            next_year = year + 1
+            next_month_num = 1
+        else:
+            next_year = year
+            next_month_num = month + 1
+
+        cat1 = CashbackCategory.objects.create(name='Products')
+        cat2 = CashbackCategory.objects.create(name='Fuel')
+
+        # Current month: configure and select cat1
+        current_month = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=year,
+            month=month
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=current_month,
+            category=cat1,
+            percent=Decimal('5.0')
+        )
+        bank_cat1 = BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackSelection.objects.create(
+            bank_cashback_month=current_month,
+            bank_cashback_category=bank_cat1,
+            is_selected=True
+        )
+
+        # Next month: configure and select cat2
+        next_month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=next_year,
+            month=next_month_num
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=next_month_obj,
+            category=cat2,
+            percent=Decimal('2.0')
+        )
+        bank_cat2 = BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=cat2,
+            percent=Decimal('2.0')
+        )
+        BankCashbackSelection.objects.create(
+            bank_cashback_month=next_month_obj,
+            bank_cashback_category=bank_cat2,
+            is_selected=True
+        )
+
+        # Current month overview should only show cat1, not cat2
+        response = self.client.get(f'/cashback/{year}/{month}/')
+        self.assertEqual(response.status_code, 200)
+
+        # Should show cat1 (Products) since it's selected for current month
+        self.assertContains(response, 'Products')
+        # Should NOT show cat2 (Fuel) since it belongs to next month only
+        self.assertNotContains(response, 'Fuel')
+
 
 class CashbackCategoryModelTest(TestCase):
     """Tests for the new CashbackCategory model."""
@@ -3549,8 +3621,8 @@ class BankViewWithNewCategoriesTest(TestCase):
         remaining = BankCashbackMonthCategory.objects.get(bank_cashback_month=month_obj)
         self.assertEqual(remaining.category, self.cat2)
 
-    def test_uncheck_category_makes_it_available(self):
-        """Test that after unchecking, category appears in Available section (not Selected)."""
+    def test_uncheck_category_removes_it_from_view(self):
+        """Test that after unchecking, category does not appear in Selected or Available sections."""
         from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory
 
         today = timezone.now()
@@ -3583,13 +3655,12 @@ class BankViewWithNewCategoriesTest(TestCase):
         # Verify cat1 was removed from month categories
         self.assertEqual(BankCashbackMonthCategory.objects.filter(bank_cashback_month=month_obj).count(), 0)
 
-        # Check that the bank view now shows cat1 as "Available"
+        # Check that the bank view no longer shows cat1 (it was unconfigured)
         response = self.client.get(f'/bank/{self.bank.pk}/')
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
-        # cat1 should be in the Available categories section
-        self.assertIn('Available categories', content)
-        self.assertIn('Products', content)
+        # cat1 should NOT be in Selected or Available sections
+        self.assertNotIn('Selected categories', content)
 
     def test_bank_view_shows_corect_checkbox_state(self):
         """Test that the config modal shows correct checkbox state based on month categories."""
@@ -3687,4 +3758,88 @@ class BankViewWithNewCategoriesTest(TestCase):
         self.assertEqual(response.status_code, 200)
         content = response.content.decode()
         self.assertNotIn('Selected categories', content)
+
+    def test_next_month_does_not_show_previous_month_categories_as_available(self):
+        """Test that next month's available categories don't include previous month's."""
+        from finance.models import BankCashbackMonth, BankCashbackMonthCategory, BankCashbackCategory, BankCashbackSelection, CashbackCategory
+        from datetime import datetime
+
+        today = datetime.now()
+        current_year = today.year
+        current_month = today.month
+
+        if current_month == 12:
+            next_year = current_year + 1
+            next_month_num = 1
+        else:
+            next_year = current_year
+            next_month_num = current_month + 1
+
+        cat3 = CashbackCategory.objects.create(name='Fuel')
+
+        # Setup current month: configure cat1 and cat2, select cat1
+        current_month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=current_year,
+            month=current_month
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=current_month_obj,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=current_month_obj,
+            category=self.cat2,
+            percent=Decimal('3.0')
+        )
+        bank_cat1 = BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat1,
+            percent=Decimal('5.0')
+        )
+        BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=self.cat2,
+            percent=Decimal('3.0')
+        )
+        BankCashbackSelection.objects.create(
+            bank_cashback_month=current_month_obj,
+            bank_cashback_category=bank_cat1,
+            is_selected=True
+        )
+
+        # Setup next month: configure only cat3, select cat3
+        next_month_obj = BankCashbackMonth.objects.create(
+            bank=self.bank,
+            year=next_year,
+            month=next_month_num
+        )
+        BankCashbackMonthCategory.objects.create(
+            bank_cashback_month=next_month_obj,
+            category=cat3,
+            percent=Decimal('2.0')
+        )
+        bank_cat3 = BankCashbackCategory.objects.create(
+            bank=self.bank,
+            category=cat3,
+            percent=Decimal('2.0')
+        )
+        BankCashbackSelection.objects.create(
+            bank_cashback_month=next_month_obj,
+            bank_cashback_category=bank_cat3,
+            is_selected=True
+        )
+
+        response = self.client.get(f'/bank/{self.bank.pk}/')
+        self.assertEqual(response.status_code, 200)
+
+        # Next month's selected should only have cat3 (Fuel)
+        self.assertEqual(len(response.context['next_selected']), 1)
+        self.assertEqual(response.context['next_selected'][0].category, cat3)
+
+        # Next month's available should be empty (only cat3 is configured for
+        # next month and it's already selected)
+        # BUG: Cat1 and cat2 from current month should NOT appear here
+        self.assertEqual(len(response.context['next_available']), 0)
 

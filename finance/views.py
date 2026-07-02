@@ -945,8 +945,10 @@ def bank_view(request, pk):
             }
         
         # Available: BankCashbackCategory objects for this bank that are not selected
+        # and have been configured for this month via BankCashbackMonthCategory
         available = BankCashbackCategory.objects.filter(
-            bank=bank
+            bank=bank,
+            category_id__in=month_category_ids
         ).exclude(id__in=selected_ids).select_related('category')
         
         return month_obj, selected, list(available), month_category_ids, month_category_values
@@ -1125,9 +1127,16 @@ def cashback_overview(request, year=None, month=None):
             selected_ids = set(s.bank_cashback_category_id for s in selections)
             categories = [s.bank_cashback_category for s in selections]
             
-            # Get all BankCashbackCategory for this bank, excluding selected ones
+            # Get month-specific category configs to scope available categories
+            month_cat_configs = BankCashbackMonthCategory.objects.filter(
+                bank_cashback_month=cashback_month
+            )
+            month_category_ids = set(mc.category_id for mc in month_cat_configs)
+            
+            # Get BankCashbackCategory for this month only, excluding selected ones
             all_bank_cats = BankCashbackCategory.objects.filter(
-                bank=bank
+                bank=bank,
+                category_id__in=month_category_ids
             ).exclude(id__in=selected_ids).select_related('category')
             
             banks_with_cashback.append({
