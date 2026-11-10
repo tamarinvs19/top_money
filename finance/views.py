@@ -19,6 +19,21 @@ from finance.models import Asset, Transaction, AssetType, TransactionType, Waste
 from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, BANKS, BankAsset, Provider, PROVIDERS, CashbackCategory
 from finance.models import InvitationCode, BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory, BankCashbackMonthCategory, RecentAsset
 from finance.exchange_rate import ExchangeRateService
+from finance.currency import CurrencyConverter
+
+
+def transaction_amount_in_rub(transaction):
+    if transaction.currency == CurrencyConverter.BASE_CURRENCY:
+        return transaction.amount
+
+    for asset, rate in (
+        (transaction.from_asset, transaction.from_asset_rate),
+        (transaction.to_asset, transaction.to_asset_rate),
+    ):
+        if asset and asset.currency == CurrencyConverter.BASE_CURRENCY and rate:
+            return CurrencyConverter.to_base(transaction.amount, transaction.currency, rate)
+
+    return CurrencyConverter.to_base(transaction.amount, transaction.currency)
 
 
 class SignupForm(UserCreationForm):
@@ -95,9 +110,9 @@ def transactions(request, year=None, month=None, asset_uuid=None):
         grouped[day]['transactions'].append(t)
         
         if t.type == TransactionType.REFILL:
-            amount = t.amount
+            amount = transaction_amount_in_rub(t)
         elif t.type == TransactionType.WASTE:
-            amount = -t.amount
+            amount = -transaction_amount_in_rub(t)
         else:
             amount = Decimal('0')
         grouped[day]['day_total'] += amount
@@ -108,9 +123,9 @@ def transactions(request, year=None, month=None, asset_uuid=None):
     for day_data in grouped.values():
         for t in day_data['transactions']:
             if t.type == TransactionType.REFILL:
-                month_income += t.amount
+                month_income += transaction_amount_in_rub(t)
             elif t.type == TransactionType.WASTE:
-                month_expense += t.amount
+                month_expense += transaction_amount_in_rub(t)
     
     month_balance = month_income - month_expense
     
@@ -528,7 +543,9 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
         user=request.user,
         date__gte=start_date,
         date__lte=end_date
-    ).exclude(type=TransactionType.CHANGING_BALANCE).exclude(exclude_from_stats=True)
+    ).select_related('from_asset', 'to_asset').exclude(
+        type=TransactionType.CHANGING_BALANCE
+    ).exclude(exclude_from_stats=True)
     
     income_by_category = {}
     outcome_by_category = {}
@@ -538,12 +555,14 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
     for t in transactions_list:
         if t.type == TransactionType.REFILL:
             cat = t.category if t.category else 'OTHER_REFILL'
-            income_by_category[cat] = income_by_category.get(cat, Decimal('0')) + t.amount
-            total_income += t.amount
+            amount = transaction_amount_in_rub(t)
+            income_by_category[cat] = income_by_category.get(cat, Decimal('0')) + amount
+            total_income += amount
         elif t.type == TransactionType.WASTE:
             cat = t.category if t.category else 'OTHER_WASTE'
-            outcome_by_category[cat] = outcome_by_category.get(cat, Decimal('0')) + t.amount
-            total_outcome += t.amount
+            amount = transaction_amount_in_rub(t)
+            outcome_by_category[cat] = outcome_by_category.get(cat, Decimal('0')) + amount
+            total_outcome += amount
     
     income_sorted = sorted(income_by_category.items(), key=lambda x: x[1], reverse=True)
     outcome_sorted = sorted(outcome_by_category.items(), key=lambda x: x[1], reverse=True)

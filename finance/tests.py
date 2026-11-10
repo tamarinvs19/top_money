@@ -12,6 +12,7 @@ from finance.models import (
     BankAsset, BankInvestment, SavingAccount, InvitationCode, Bank, CommissionType,
     Provider, RecentAsset, RECENT_ASSETS_LIMIT,
 )
+from finance.currency import CurrencyConverter
 from finance.exchange_rate import ExchangeRateService
 
 
@@ -3911,4 +3912,31 @@ class RecentAssetTest(TestCase):
         RecentAsset.record_usage(self.user, [other_asset.pk])
 
         self.assertFalse(RecentAsset.objects.filter(user=self.user).exists())
+
+
+class CurrencyConverterToBaseTest(TestCase):
+    def test_rub_amount_is_not_converted(self):
+        self.assertEqual(
+            CurrencyConverter.to_base(Decimal('100'), 'RUB', Decimal('0.5')),
+            Decimal('100'),
+        )
+
+    def test_asset_rate_is_used_for_conversion(self):
+        self.assertAlmostEqual(
+            float(CurrencyConverter.to_base(Decimal('100'), 'USD', Decimal('0.011'))),
+            9090.91,
+            places=2,
+        )
+
+    def test_static_rate_is_used_without_asset_rate(self):
+        self.assertEqual(
+            CurrencyConverter.to_base(Decimal('100'), 'USD'),
+            Decimal('9000.0'),
+        )
+
+    def test_unknown_currency_falls_back_to_original_amount(self):
+        self.assertEqual(
+            CurrencyConverter.to_base(Decimal('100'), 'GBP'),
+            Decimal('100'),
+        )
 

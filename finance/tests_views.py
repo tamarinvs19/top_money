@@ -2,8 +2,9 @@ from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.timezone import make_aware
 from decimal import Decimal
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode, CommissionType, Provider, Bank, RecentAsset
 
@@ -1574,3 +1575,105 @@ class RecentAssetOrderingViewTest(TestCase):
             content.index('Second Card'),
             content.index('First Card'),
         )
+
+
+class StatisticsCurrencyConversionTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+        self.rub_asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='RUB Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+        self.usd_asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='USD Card',
+            type=AssetType.DEBIT_CARD,
+            currency='USD',
+        )
+        now = timezone.now()
+        self.current_year = now.year
+        self.current_month = now.month
+        self.test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+
+    def test_outcome_totals_convert_mixed_currencies_to_rub(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('100.00'),
+            currency='USD',
+            from_asset=self.rub_asset,
+            from_asset_rate=Decimal('0.011'),
+            category='PRODUCTS',
+            description='',
+            date=self.test_date,
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('5000.00'),
+            currency='RUB',
+            from_asset=self.rub_asset,
+            category='PRODUCTS',
+            description='',
+            date=self.test_date,
+        )
+
+        url = reverse('statistics_month_type', args=[self.current_year, self.current_month, 'outcome'])
+        response = self.client.get(url)
+
+        self.assertAlmostEqual(float(response.context['total_outcome']), 14090.91, places=2)
+        self.assertAlmostEqual(
+            float(response.context['outcome_data'][0]['amount']),
+            14090.91,
+            places=2,
+        )
+
+    def test_income_uses_static_rate_when_no_rub_asset_is_involved(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('10.00'),
+            currency='USD',
+            to_asset=self.usd_asset,
+            category='SALARY',
+            description='',
+            date=self.test_date,
+        )
+
+        url = reverse('statistics_month_type', args=[self.current_year, self.current_month, 'income'])
+        response = self.client.get(url)
+
+        self.assertAlmostEqual(float(response.context['total_income']), 900.00, places=2)
+
+    def test_transactions_month_totals_convert_currencies(self):
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('100.00'),
+            currency='USD',
+            to_asset=self.rub_asset,
+            to_asset_rate=Decimal('0.011'),
+            category='SALARY',
+            description='',
+            date=self.test_date,
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            from_asset=self.rub_asset,
+            category='PRODUCTS',
+            description='',
+            date=self.test_date,
+        )
+
+        response = self.client.get(reverse('transactions'))
+
+        self.assertAlmostEqual(float(response.context['month_income']), 9090.91, places=2)
+        self.assertEqual(response.context['month_expense'], Decimal('1000.00'))
+        self.assertAlmostEqual(float(response.context['month_balance']), 8090.91, places=2)
