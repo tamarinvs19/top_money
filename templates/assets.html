@@ -51,8 +51,8 @@
       <a href="{% url 'transactions_asset' asset.pk %}" class="transaction-link d-flex justify-content-between align-items-center" style="width: 100%">
         <div class="d-flex align-items-center gap-2">
           {% if asset.bank %}
-            {% if asset.bank.image %}
-            <img src="{{ asset.bank.image.url }}" alt="{{ asset.bank.name }}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 4px;">
+            {% if asset.bank.image_url %}
+            <img src="{{ asset.bank.image_url }}" alt="{{ asset.bank.name }}" style="width: 28px; height: 28px; object-fit: contain; border-radius: 4px;">
             {% else %}
             <span class="badge bg-secondary"><i class="bi bi-bank"></i></span>
             {% endif %}
