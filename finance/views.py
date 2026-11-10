@@ -17,7 +17,7 @@ import shutil
 
 from finance.models import Asset, Transaction, AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType, get_asset_type_label
 from finance.models import CashAsset, DebitCardAsset, DepositAsset, CreditCardAsset, BrokerageAsset, SavingAccount, EWalletAsset, Bank, BANKS, BankAsset, Provider, PROVIDERS, CashbackCategory
-from finance.models import InvitationCode, BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory, BankCashbackMonthCategory
+from finance.models import InvitationCode, BankCashbackCategory, BankCashbackMonth, BankCashbackSelection, CashbackCategory, BankCashbackMonthCategory, RecentAsset
 from finance.exchange_rate import ExchangeRateService
 
 
@@ -138,7 +138,10 @@ def transaction_add(request, year=None, month=None, day=None):
     else:
         initial_date = make_aware(now)
     
-    assets = Asset.objects.select_subclasses().filter(user=request.user, is_active=True)
+    assets = RecentAsset.order_assets(
+        request.user,
+        Asset.objects.select_subclasses().filter(user=request.user, is_active=True),
+    )
     
     if request.method == 'POST':
         t_type = request.POST.get('type')
@@ -157,7 +160,7 @@ def transaction_add(request, year=None, month=None, day=None):
         commission_rate = Decimal(request.POST.get('commission_rate', '0') or '0')
         commission_type = request.POST.get('commission_type', 'PERCENT')
         
-        Transaction.objects.create(
+        transaction = Transaction.objects.create(
             user=request.user,
             type=t_type,
             amount=amount,
@@ -173,6 +176,7 @@ def transaction_add(request, year=None, month=None, day=None):
             commission_rate=commission_rate,
             commission_type=commission_type,
         )
+        RecentAsset.record_usage(request.user, [transaction.from_asset_id, transaction.to_asset_id])
         
         url = reverse('transactions_month', kwargs={'year': date.year, 'month': date.month})
         return redirect(f'{url}#day-{date.strftime("%Y-%m-%d")}')
@@ -192,7 +196,10 @@ def transaction_add(request, year=None, month=None, day=None):
 @login_required
 def transaction_edit(request, pk):
     transaction = get_object_or_404(Transaction, pk=pk, user=request.user)
-    assets = Asset.objects.select_subclasses().filter(user=request.user, is_active=True)
+    assets = RecentAsset.order_assets(
+        request.user,
+        Asset.objects.select_subclasses().filter(user=request.user, is_active=True),
+    )
     
     if request.method == 'POST':
         transaction.type = request.POST.get('type')
@@ -217,6 +224,7 @@ def transaction_edit(request, pk):
         transaction.commission_type = commission_type
         transaction.exclude_from_stats = request.POST.get('exclude_from_stats') == 'on'
         transaction.save()
+        RecentAsset.record_usage(request.user, [transaction.from_asset_id, transaction.to_asset_id])
         
         url = reverse('transactions_month', kwargs={'year': transaction.date.year, 'month': transaction.date.month})
         return redirect(f'{url}#day-{transaction.date.strftime("%Y-%m-%d")}')

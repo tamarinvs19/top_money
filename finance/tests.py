@@ -10,7 +10,7 @@ from finance.models import (
     CreditCardAsset, BrokerageAsset, EWalletAsset, Transaction, 
     AssetType, TransactionType, WasteCategory, RefillCategory, BrokerageAccountType,
     BankAsset, BankInvestment, SavingAccount, InvitationCode, Bank, CommissionType,
-    Provider
+    Provider, RecentAsset, RECENT_ASSETS_LIMIT,
 )
 from finance.exchange_rate import ExchangeRateService
 
@@ -3842,4 +3842,73 @@ class BankViewWithNewCategoriesTest(TestCase):
         # next month and it's already selected)
         # BUG: Cat1 and cat2 from current month should NOT appear here
         self.assertEqual(len(response.context['next_available']), 0)
+
+
+class RecentAssetTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+
+    def _create_asset(self, name):
+        return DebitCardAsset.objects.create(
+            user=self.user,
+            name=name,
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+
+    def test_record_usage_keeps_only_latest_three_assets(self):
+        assets = [self._create_asset(f'Card {i}') for i in range(RECENT_ASSETS_LIMIT + 1)]
+
+        for asset in assets:
+            RecentAsset.record_usage(self.user, [asset.pk])
+
+        self.assertEqual(RecentAsset.objects.filter(user=self.user).count(), RECENT_ASSETS_LIMIT)
+        recent_ids = list(
+            RecentAsset.objects.filter(user=self.user).values_list('asset_id', flat=True)
+        )
+        self.assertNotIn(assets[0].pk, recent_ids)
+        self.assertIn(assets[-1].pk, recent_ids)
+
+    def test_record_usage_updates_existing_entry(self):
+        first = self._create_asset('First')
+        second = self._create_asset('Second')
+
+        RecentAsset.record_usage(self.user, [first.pk])
+        RecentAsset.record_usage(self.user, [second.pk])
+        RecentAsset.record_usage(self.user, [first.pk])
+
+        self.assertEqual(RecentAsset.objects.filter(user=self.user).count(), 2)
+        newest = RecentAsset.objects.filter(user=self.user).first()
+        self.assertEqual(newest.asset_id, first.pk)
+
+    def test_order_assets_puts_recent_assets_first(self):
+        first = self._create_asset('First')
+        second = self._create_asset('Second')
+        third = self._create_asset('Third')
+
+        RecentAsset.record_usage(self.user, [first.pk])
+        RecentAsset.record_usage(self.user, [second.pk])
+        RecentAsset.record_usage(self.user, [third.pk])
+
+        ordered = RecentAsset.order_assets(
+            self.user,
+            Asset.objects.filter(user=self.user),
+        )
+        self.assertEqual([asset.pk for asset in ordered[:3]], [third.pk, second.pk, first.pk])
+
+    def test_record_usage_ignores_other_users_assets(self):
+        other_user = User.objects.create_user(username='other', password='otherpass')
+        other_asset = DebitCardAsset.objects.create(
+            user=other_user,
+            name='Other Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+
+        RecentAsset.record_usage(self.user, [other_asset.pk])
+
+        self.assertFalse(RecentAsset.objects.filter(user=self.user).exists())
 

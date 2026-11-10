@@ -309,6 +309,57 @@ class Asset(models.Model):
         return total_in - total_out
 
 
+RECENT_ASSETS_LIMIT = 3
+
+
+class RecentAsset(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='recent_assets')
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name='recent_usages')
+    used_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-used_at', '-id']
+        unique_together = ('user', 'asset')
+
+    def __str__(self):
+        return f"{self.user.username}: {self.asset.name}"
+
+    @classmethod
+    def record_usage(cls, user, asset_ids):
+        for asset_id in asset_ids:
+            if not asset_id:
+                continue
+            asset = Asset.objects.filter(pk=asset_id, user=user).first()
+            if asset is None:
+                continue
+            cls.objects.update_or_create(
+                user=user,
+                asset=asset,
+                defaults={'used_at': timezone.now()},
+            )
+
+        stale_ids = list(
+            cls.objects.filter(user=user)
+            .order_by('-used_at', '-id')
+            .values_list('id', flat=True)[RECENT_ASSETS_LIMIT:]
+        )
+        if stale_ids:
+            cls.objects.filter(id__in=stale_ids).delete()
+
+    @classmethod
+    def order_assets(cls, user, assets):
+        assets = list(assets)
+        recent_ids = list(
+            cls.objects.filter(user=user)
+            .order_by('-used_at', '-id')
+            .values_list('asset_id', flat=True)
+        )
+        assets_by_id = {asset.pk: asset for asset in assets}
+        ordered = [assets_by_id.pop(asset_id) for asset_id in recent_ids if asset_id in assets_by_id]
+        ordered.extend(assets_by_id.values())
+        return ordered
+
+
 class CashAsset(Asset):
     location = models.CharField(max_length=100, blank=True)
 

@@ -5,7 +5,7 @@ from django.utils import timezone
 from decimal import Decimal
 from datetime import timedelta
 
-from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode, CommissionType, Provider, Bank
+from finance.models import Asset, DebitCardAsset, Transaction, AssetType, TransactionType, CashAsset, SavingAccount, EWalletAsset, InvitationCode, CommissionType, Provider, Bank, RecentAsset
 
 
 def create_asset_with_balance(user, name, asset_type, currency, balance_amount):
@@ -1497,3 +1497,80 @@ class ProviderViewsTest(TestCase):
         self.assertContains(response, 'Sberbank')
         self.assertContains(response, 'Providers')
         self.assertContains(response, 'Qiwi')
+
+
+class RecentAssetOrderingViewTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+        self.first = DebitCardAsset.objects.create(
+            user=self.user,
+            name='First Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+        self.second = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Second Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+
+    def test_transaction_add_records_recent_assets(self):
+        self.client.post(reverse('transaction_add'), {
+            'type': TransactionType.REFILL,
+            'amount': '100',
+            'currency': 'RUB',
+            'category': 'SALARY',
+            'description': '',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'to_asset': self.second.pk,
+        })
+
+        self.assertTrue(
+            RecentAsset.objects.filter(user=self.user, asset=self.second).exists()
+        )
+
+    def test_transaction_edit_records_recent_assets(self):
+        transaction = Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('50.00'),
+            currency='RUB',
+            from_asset=self.first,
+            to_asset=self.second,
+            description='',
+            date=timezone.now(),
+        )
+
+        self.client.post(reverse('transaction_edit', args=[transaction.pk]), {
+            'type': TransactionType.TRANSFER,
+            'amount': '50',
+            'currency': 'RUB',
+            'description': 'Moved',
+            'date': '2026-03-01',
+            'time': '12:00',
+            'from_asset': self.first.pk,
+            'to_asset': self.second.pk,
+        })
+
+        self.assertTrue(
+            RecentAsset.objects.filter(user=self.user, asset=self.first).exists()
+        )
+        self.assertTrue(
+            RecentAsset.objects.filter(user=self.user, asset=self.second).exists()
+        )
+
+    def test_transaction_form_puts_recent_assets_first(self):
+        RecentAsset.record_usage(self.user, [self.first.pk])
+        RecentAsset.record_usage(self.user, [self.second.pk])
+
+        response = self.client.get(reverse('transaction_add'))
+        content = response.content.decode()
+
+        self.assertLess(
+            content.index('Second Card'),
+            content.index('First Card'),
+        )
