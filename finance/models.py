@@ -109,6 +109,16 @@ class Provider(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def image_url(self):
+        static_filename = PROVIDER_STATIC_LOGOS.get(self.name.casefold())
+        image_name = self.image.name if self.image else None
+        if static_filename and image_name in (None, f'providers/{static_filename}'):
+            return static(f'providers/{static_filename}')
+        if self.image:
+            return self.image.url
+        return None
+
 
 PROVIDERS = [
     ('Qiwi', 'qiwi.svg'),
@@ -116,6 +126,10 @@ PROVIDERS = [
     ('Finuslugi', 'finuslugi.svg'),
     ('Alibaba', 'alibaba.svg'),
 ]
+
+PROVIDER_STATIC_LOGOS = {
+    name.casefold(): filename for name, filename in PROVIDERS
+}
 
 
 class AssetType(models.TextChoices):

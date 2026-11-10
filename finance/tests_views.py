@@ -1760,6 +1760,48 @@ class BankImageMediaTest(TestCase):
         self.assertContains(response, 'name="image"')
 
 
+class ProviderImageMediaTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
+
+    def test_provider_without_image_uses_static_logo(self):
+        Provider.objects.create(name='Qiwi')
+
+        response = self.client.get(reverse('banks'))
+
+        self.assertContains(response, '/static/providers/qiwi.svg')
+
+    def test_migrated_bundled_provider_logo_uses_static_url(self):
+        Provider.objects.create(name='Qiwi', image='providers/qiwi.svg')
+
+        response = self.client.get(reverse('banks'))
+
+        self.assertContains(response, '/static/providers/qiwi.svg')
+        self.assertNotContains(response, '/media/providers/qiwi.svg')
+
+    def test_provider_custom_logo_uses_media_url(self):
+        provider = Provider.objects.create(name='Custom Wallet', image='providers/custom.png')
+
+        self.assertEqual(provider.image_url, '/media/providers/custom.png')
+
+    def test_provider_static_logo_fallback_is_case_insensitive(self):
+        provider = Provider.objects.create(name='qiwi')
+
+        self.assertEqual(provider.image_url, '/static/providers/qiwi.svg')
+
+    def test_provider_without_image_and_unknown_name_has_no_logo_url(self):
+        provider = Provider.objects.create(name='Local Wallet')
+
+        self.assertIsNone(provider.image_url)
+
+
 class TransactionFiltersTest(TestCase):
     def setUp(self):
         self.client = Client()
