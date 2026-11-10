@@ -1,5 +1,23 @@
 from django.contrib import admin
-from finance.models import InvitationCode
+from django.utils.html import format_html
+
+from finance.models import Bank, InvitationCode
+
+
+@admin.register(Bank)
+class BankAdmin(admin.ModelAdmin):
+    list_display = ['name', 'logo_preview', 'cashback_categories_limit']
+    search_fields = ['name']
+    fields = ['name', 'image', 'cashback_categories_limit']
+
+    @admin.display(description='Logo')
+    def logo_preview(self, obj):
+        if not obj.image:
+            return '-'
+        return format_html(
+            '<img src="{}" style="width: 32px; height: 32px; object-fit: contain;" />',
+            obj.image.url,
+        )
 
 
 @admin.register(InvitationCode)

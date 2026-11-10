@@ -36,7 +36,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">
           {% if item.bank.image %}
-          <img src="{% static item.bank.image %}" alt="{{ item.bank.name }}" style="width: 30px; height: 30px; object-fit: contain; margin-right: 10px;">
+          <img src="{{ item.bank.image.url }}" alt="{{ item.bank.name }}" style="width: 30px; height: 30px; object-fit: contain; margin-right: 10px;">
           {% endif %}
           <a href="{% url 'bank_view' item.bank.pk %}" class="text-decoration-none">{{ item.bank.name }}</a>
         </h5>

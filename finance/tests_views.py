@@ -1,4 +1,8 @@
-from django.test import TestCase, Client
+import shutil
+import tempfile
+
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.utils import timezone
@@ -1677,3 +1681,55 @@ class StatisticsCurrencyConversionTest(TestCase):
         self.assertAlmostEqual(float(response.context['month_income']), 9090.91, places=2)
         self.assertEqual(response.context['month_expense'], Decimal('1000.00'))
         self.assertAlmostEqual(float(response.context['month_balance']), 8090.91, places=2)
+
+
+class BankImageMediaTest(TestCase):
+    PNG_BYTES = (
+        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
+        b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
+        b'\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+    )
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.client.login(username='testuser', password='testpass123')
+        self.media_root = tempfile.mkdtemp()
+        self.override = override_settings(MEDIA_ROOT=self.media_root)
+        self.override.enable()
+        self.addCleanup(self.override.disable)
+        self.addCleanup(shutil.rmtree, self.media_root, True)
+
+    def test_banks_page_uses_media_url_for_logo(self):
+        Bank.objects.create(name='Media Bank', image='banks/media.png')
+
+        response = self.client.get(reverse('banks'))
+
+        self.assertContains(response, '/media/banks/media.png')
+
+    def test_bank_form_accepts_logo_upload(self):
+        bank = Bank.objects.create(name='Upload Bank')
+
+        upload = SimpleUploadedFile('logo.png', self.PNG_BYTES, content_type='image/png')
+        self.client.post(reverse('bank_edit', args=[bank.pk]), {
+            'name': bank.name,
+            'cashback_categories_limit': '3',
+            'image': upload,
+        })
+
+        bank.refresh_from_db()
+        self.assertTrue(bank.image.name.startswith('banks/'))
+
+    def test_bank_admin_allows_logo_editing(self):
+        admin_user = User.objects.create_superuser(
+            username='admin',
+            email='admin@example.com',
+            password='adminpass',
+        )
+        self.client.login(username='admin', password='adminpass')
+        bank = Bank.objects.create(name='Admin Bank')
+
+        response = self.client.get(reverse('admin:finance_bank_change', args=[bank.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="image"')

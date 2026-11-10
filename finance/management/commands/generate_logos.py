@@ -49,8 +49,7 @@ class Command(BaseCommand):
         self.generate_provider_logos()
 
     def generate_bank_logos(self):
-        static_dir = os.path.join(settings.BASE_DIR, 'static')
-        banks_dir = os.path.join(static_dir, 'banks')
+        banks_dir = os.path.join(settings.MEDIA_ROOT, 'banks')
         os.makedirs(banks_dir, exist_ok=True)
 
         for bank_name, image_name in BANKS:
@@ -68,8 +67,7 @@ class Command(BaseCommand):
             self.stdout.write(f'Generated: {bank_name} -> {image_name.replace(".png", ".svg")}')
 
     def generate_provider_logos(self):
-        static_dir = os.path.join(settings.BASE_DIR, 'static')
-        providers_dir = os.path.join(static_dir, 'providers')
+        providers_dir = os.path.join(settings.MEDIA_ROOT, 'providers')
         os.makedirs(providers_dir, exist_ok=True)
 
         for provider_name, image_name in PROVIDERS:

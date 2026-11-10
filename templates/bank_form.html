@@ -18,14 +18,15 @@
             <input type="number" name="cashback_categories_limit" class="form-control" value="{{ bank.cashback_categories_limit|default:3 }}" min="1" />
             <small class="text-muted">Number of cashback categories user can select for this bank</small>
           </div>
-          {% if bank.image %}
           <div class="mb-3">
             <label class="form-label">Bank Logo</label>
-            <div>
-              <img src="{% static bank.image %}" alt="{{ bank.name }}" style="max-width: 100px; max-height: 100px; object-fit: contain;">
+            <input type="file" name="image" accept="image/*" class="form-control" />
+            {% if bank.image %}
+            <div class="mt-2">
+              <img src="{{ bank.image.url }}" alt="{{ bank.name }}" style="max-width: 100px; max-height: 100px; object-fit: contain;">
             </div>
+            {% endif %}
           </div>
-          {% endif %}
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">Save</button>
             <a href="{% url 'banks' %}" class="btn btn-outline-secondary">Cancel</a>
