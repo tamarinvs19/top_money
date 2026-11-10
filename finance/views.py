@@ -12,6 +12,7 @@ from django.db import models
 from django.http import JsonResponse, HttpResponse
 from django.conf import settings
 from django import forms
+from urllib.parse import urlencode
 import os
 import shutil
 
@@ -71,25 +72,30 @@ def signup(request):
 @login_required
 def transactions(request, year=None, month=None, asset_uuid=None):
     today = timezone.now()
+    period = 'month'
     if year is None:
         year = today.year
-    if month is None:
         month = today.month
+    elif month is None:
+        period = 'year'
     
-    current_date = make_aware(datetime(int(year), int(month), 1))
-    
-    prev_month = current_date - timedelta(days=1)
-    next_month = current_date + timedelta(days=31)
-    next_month = next_month.replace(day=1)
-    
-    start_date = current_date
-    end_date = current_date.replace(day=1, month=int(month) + 1) if int(month) < 12 else current_date.replace(year=int(year)+1, month=1)
-    if int(month) == 12:
-        end_date = make_aware(datetime(int(year) + 1, 1, 1)) - timedelta(seconds=1)
+    if period == 'year':
+        start_date = make_aware(datetime(int(year), 1, 1))
+        end_date = make_aware(datetime(int(year), 12, 31, 23, 59, 59))
+        prev_date = int(year) - 1
+        next_date = int(year) + 1
     else:
-        from calendar import monthrange
-        _, days = monthrange(int(year), int(month))
-        end_date = make_aware(datetime(int(year), int(month), days, 23, 59, 59))
+        current_date = make_aware(datetime(int(year), int(month), 1))
+        prev_date = current_date - timedelta(days=1)
+        next_date = current_date + timedelta(days=31)
+        next_date = next_date.replace(day=1)
+        start_date = current_date
+        if int(month) == 12:
+            end_date = make_aware(datetime(int(year) + 1, 1, 1)) - timedelta(seconds=1)
+        else:
+            from calendar import monthrange
+            _, days = monthrange(int(year), int(month))
+            end_date = make_aware(datetime(int(year), int(month), days, 23, 59, 59))
     
     transactions_list = Transaction.objects.filter(
         user=request.user,
@@ -101,6 +107,48 @@ def transactions(request, year=None, month=None, asset_uuid=None):
         transactions_list = transactions_list.filter(
             models.Q(from_asset_id=asset_uuid) | models.Q(to_asset_id=asset_uuid)
         )
+
+    transaction_types = TransactionType.choices
+    waste_categories = WasteCategory.choices
+    refill_categories = RefillCategory.choices
+
+    valid_types = {value for value, _ in transaction_types}
+    valid_categories = (
+        {value for value, _ in waste_categories}
+        | {value for value, _ in refill_categories}
+    )
+    selected_type = request.GET.get('type', '')
+    if selected_type not in valid_types:
+        selected_type = ''
+    selected_category = request.GET.get('category', '')
+    if selected_category not in valid_categories:
+        selected_category = ''
+
+    if selected_type:
+        transactions_list = transactions_list.filter(type=selected_type)
+    if selected_category:
+        transactions_list = transactions_list.filter(category=selected_category)
+
+    if period == 'year':
+        if asset_uuid:
+            prev_url = reverse('transactions_year_asset', args=[prev_date, asset_uuid])
+            next_url = reverse('transactions_year_asset', args=[next_date, asset_uuid])
+        else:
+            prev_url = reverse('transactions_year', args=[prev_date])
+            next_url = reverse('transactions_year', args=[next_date])
+    else:
+        if asset_uuid:
+            prev_url = reverse(
+                'transactions_month_asset',
+                args=[prev_date.year, prev_date.month, asset_uuid],
+            )
+            next_url = reverse(
+                'transactions_month_asset',
+                args=[next_date.year, next_date.month, asset_uuid],
+            )
+        else:
+            prev_url = reverse('transactions_month', args=[prev_date.year, prev_date.month])
+            next_url = reverse('transactions_month', args=[next_date.year, next_date.month])
     
     grouped = {}
     for t in transactions_list:
@@ -132,10 +180,16 @@ def transactions(request, year=None, month=None, asset_uuid=None):
     return render(request, 'transactions.html', {
         'transactions_by_day': grouped,
         'year': int(year),
-        'month': int(month),
+        'month': int(month) if month is not None else None,
+        'period': period,
         'asset': Asset.objects.filter(id=asset_uuid).first() or "",
-        'prev_month': prev_month,
-        'next_month': next_month,
+        'prev_url': prev_url,
+        'next_url': next_url,
+        'transaction_types': transaction_types,
+        'waste_categories': waste_categories,
+        'refill_categories': refill_categories,
+        'selected_type': selected_type,
+        'selected_category': selected_category,
         'month_income': month_income,
         'month_expense': month_expense,
         'month_balance': month_balance,
@@ -576,12 +630,22 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
                 return choice[1]
         return cat
     
+    def category_filter_url(category, transaction_type):
+        params = urlencode({'type': transaction_type, 'category': category})
+        if period == 'year':
+            base_url = reverse('transactions_year', args=[year])
+        else:
+            base_url = reverse('transactions_month', args=[year, month])
+        return f'{base_url}?{params}'
+
     income_data = []
     colors = ['#ff6b6b', '#ffa07a', '#ffd93d', '#6bcb77', '#4d96ff', '#9b59b6', '#ff9ff3', '#54a0ff', '#5f27cd', '#48dbfb', '#ff9f43', '#ee5a24', '#009432', '#1289A7', '#D980FA']
     for i, (cat, amount) in enumerate(income_sorted):
         percent = (amount / total_income * 100) if total_income > 0 else 0
         income_data.append({
             'category': format_category(cat),
+            'code': cat,
+            'url': category_filter_url(cat, TransactionType.REFILL),
             'amount': amount,
             'percent': percent,
             'color': colors[i % len(colors)],
@@ -592,6 +656,8 @@ def statistics(request, year=None, month=None, stat_type='outcome'):
         percent = (amount / total_outcome * 100) if total_outcome > 0 else 0
         outcome_data.append({
             'category': format_category(cat),
+            'code': cat,
+            'url': category_filter_url(cat, TransactionType.WASTE),
             'amount': amount,
             'percent': percent,
             'color': colors[i % len(colors)],

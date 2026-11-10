@@ -94,7 +94,7 @@
             <tbody>
               {% for item in income_data %}
               <tr>
-                <td><span style="display:inline-block;width:12px;height:12px;background-color:{{ item.color }};margin-right:8px;border-radius:2px;"></span>{{ item.category }}</td>
+                <td><span style="display:inline-block;width:12px;height:12px;background-color:{{ item.color }};margin-right:8px;border-radius:2px;"></span><a href="{{ item.url }}" class="text-decoration-none">{{ item.category }}</a></td>
                 <td class="text-end">{{ item.amount|floatformat:2 }} ₽</td>
                 <td class="text-end">{{ item.percent|floatformat:1 }}%</td>
               </tr>
@@ -142,7 +142,7 @@
             <tbody>
               {% for item in outcome_data %}
               <tr>
-                <td><span style="display:inline-block;width:12px;height:12px;background-color:{{ item.color }};margin-right:8px;border-radius:2px;"></span>{{ item.category }}</td>
+                <td><span style="display:inline-block;width:12px;height:12px;background-color:{{ item.color }};margin-right:8px;border-radius:2px;"></span><a href="{{ item.url }}" class="text-decoration-none">{{ item.category }}</a></td>
                 <td class="text-end">{{ item.amount|floatformat:2 }} ₽</td>
                 <td class="text-end">{{ item.percent|floatformat:1 }}%</td>
               </tr>

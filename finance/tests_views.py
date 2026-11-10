@@ -1733,3 +1733,157 @@ class BankImageMediaTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'name="image"')
+
+
+class TransactionFiltersTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+        self.client.login(username='testuser', password='testpass123')
+        now = timezone.now()
+        self.current_year = now.year
+        self.current_month = now.month
+        self.test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='SALARY',
+            description='',
+            date=self.test_date,
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('200.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='PRODUCTS',
+            description='',
+            date=self.test_date,
+        )
+
+    def _listed_transactions(self, response):
+        return [
+            transaction
+            for day_data in response.context['transactions_by_day'].values()
+            for transaction in day_data['transactions']
+        ]
+
+    def test_transaction_page_has_type_and_category_filters(self):
+        response = self.client.get(reverse('transactions'))
+
+        self.assertContains(response, 'name="type"')
+        self.assertContains(response, 'name="category"')
+
+    def test_filter_by_operation_type(self):
+        response = self.client.get(reverse('transactions'), {'type': TransactionType.WASTE})
+
+        transactions = self._listed_transactions(response)
+        self.assertEqual(len(transactions), 1)
+        self.assertEqual(transactions[0].type, TransactionType.WASTE)
+        self.assertEqual(response.context['selected_type'], TransactionType.WASTE)
+
+    def test_filter_by_category(self):
+        response = self.client.get(reverse('transactions'), {'category': 'SALARY'})
+
+        transactions = self._listed_transactions(response)
+        self.assertEqual(len(transactions), 1)
+        self.assertEqual(transactions[0].category, 'SALARY')
+
+    def test_filter_by_type_and_category(self):
+        response = self.client.get(reverse('transactions'), {
+            'type': TransactionType.WASTE,
+            'category': 'PRODUCTS',
+        })
+
+        transactions = self._listed_transactions(response)
+        self.assertEqual(len(transactions), 1)
+        self.assertEqual(transactions[0].type, TransactionType.WASTE)
+        self.assertEqual(transactions[0].category, 'PRODUCTS')
+
+    def test_year_view_shows_whole_year(self):
+        Transaction.objects.filter(user=self.user).update(
+            date=make_aware(datetime(self.current_year, 1, 15, 12, 0))
+        )
+
+        response = self.client.get(reverse('transactions_year', args=[self.current_year]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['period'], 'year')
+        self.assertEqual(len(self._listed_transactions(response)), 2)
+
+
+class StatisticsCategoryLinksTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(username='testuser', password='testpass123')
+        self.asset = DebitCardAsset.objects.create(
+            user=self.user,
+            name='Test Card',
+            type=AssetType.DEBIT_CARD,
+            currency='RUB',
+        )
+        self.client.login(username='testuser', password='testpass123')
+        now = timezone.now()
+        self.current_year = now.year
+        self.current_month = now.month
+        test_date = make_aware(datetime(self.current_year, self.current_month, 15, 12, 0))
+
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.REFILL,
+            amount=Decimal('1000.00'),
+            currency='RUB',
+            to_asset=self.asset,
+            category='SALARY',
+            description='',
+            date=test_date,
+        )
+        Transaction.objects.create(
+            user=self.user,
+            type=TransactionType.WASTE,
+            amount=Decimal('200.00'),
+            currency='RUB',
+            from_asset=self.asset,
+            category='PRODUCTS',
+            description='',
+            date=test_date,
+        )
+
+    def test_income_category_links_to_filtered_month_page(self):
+        response = self.client.get(reverse('statistics_month_type', args=[self.current_year, self.current_month, 'income']))
+
+        expected_url = (
+            reverse('transactions_month', args=[self.current_year, self.current_month])
+            + '?type=REFILL&category=SALARY'
+        )
+        self.assertEqual(response.context['income_data'][0]['url'], expected_url)
+        self.assertContains(response, '?type=REFILL&amp;category=SALARY')
+
+    def test_outcome_category_links_to_filtered_month_page(self):
+        response = self.client.get(reverse('statistics_month_type', args=[self.current_year, self.current_month, 'outcome']))
+
+        expected_url = (
+            reverse('transactions_month', args=[self.current_year, self.current_month])
+            + '?type=WASTE&category=PRODUCTS'
+        )
+        self.assertEqual(response.context['outcome_data'][0]['url'], expected_url)
+
+    def test_year_category_link_uses_year_transactions_page(self):
+        response = self.client.get(reverse('statistics_year_type', args=[self.current_year, 'income']))
+
+        expected_url = (
+            reverse('transactions_year', args=[self.current_year])
+            + '?type=REFILL&category=SALARY'
+        )
+        self.assertEqual(response.context['income_data'][0]['url'], expected_url)

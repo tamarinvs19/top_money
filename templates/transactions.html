@@ -9,20 +9,18 @@
 <div class="card mb-2">
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-center">
+      <a href="{{ prev_url }}" class="btn btn-sm btn-outline-secondary">&larr; Prev</a>
       {% if asset %}
-        <a href="{% url 'transactions_month_asset' prev_month.year prev_month.month asset.id %}" class="btn btn-sm btn-outline-secondary">&larr; Prev</a>
         <div class="row align-items-center justify-content-center">
           <div class="col">
-            <h6 class="mb-0">{{ month }}/{{ year }}</h6>
+            <h6 class="mb-0">{% if period == 'year' %}{{ year }}{% else %}{{ month }}/{{ year }}{% endif %}</h6>
             <h6 class="mb-0 text-center">{{ asset.name }}</h6>
           </div>
         </div>
-        <a href="{% url 'transactions_month_asset' next_month.year next_month.month asset.id %}" class="btn btn-sm btn-outline-secondary">Next &rarr;</a>
       {% else %}
-        <a href="{% url 'transactions_month' prev_month.year prev_month.month %}" class="btn btn-sm btn-outline-secondary">&larr; Prev</a>
-        <h4 class="mb-0">{{ month }}/{{ year }}</h4>
-        <a href="{% url 'transactions_month' next_month.year next_month.month %}" class="btn btn-sm btn-outline-secondary">Next &rarr;</a>
+        <h4 class="mb-0">{% if period == 'year' %}{{ year }}{% else %}{{ month }}/{{ year }}{% endif %}</h4>
       {% endif %}
+      <a href="{{ next_url }}" class="btn btn-sm btn-outline-secondary">Next &rarr;</a>
     </div>
     <div class="row text-center mt-3">
       <div class="col">
@@ -37,12 +35,43 @@
         </small>
       </div>
     </div>
+    <form method="get" class="row g-2 align-items-end mt-3">
+      <div class="col-6 col-md-4">
+        <label class="form-label small mb-1" for="filterType">Type</label>
+        <select name="type" id="filterType" class="form-select form-select-sm">
+          <option value="">All types</option>
+          {% for value, label in transaction_types %}
+          <option value="{{ value }}" {% if selected_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-4">
+        <label class="form-label small mb-1" for="filterCategory">Category</label>
+        <select name="category" id="filterCategory" class="form-select form-select-sm">
+          <option value="">All categories</option>
+          <optgroup label="Outcome">
+            {% for value, label in waste_categories %}
+            <option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </optgroup>
+          <optgroup label="Income">
+            {% for value, label in refill_categories %}
+            <option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </optgroup>
+        </select>
+      </div>
+      <div class="col-12 col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+        <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+      </div>
+    </form>
   </div>
 </div>
 
 {% for day, day_data in transactions_by_day.items %}
 <div class="card mb-2">
-  <div class="card-body day-header p-2" id="day-{{ day|date:'Y-m-d' }}" onclick="window.location='{% url 'transaction_add_day' year month day.day %}'">
+  <div class="card-body day-header p-2" id="day-{{ day|date:'Y-m-d' }}" onclick="window.location='{% url 'transaction_add_day' day.year day.month day.day %}'">
     <div class="d-flex justify-content-between align-items-center">
       <strong>{{ day|date:"l, M d" }}</strong>
       <span class="{% if day_data.day_total >= 0 %}text-success{% else %}text-danger{% endif %}">
