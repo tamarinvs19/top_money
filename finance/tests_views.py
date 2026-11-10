@@ -1707,6 +1707,31 @@ class BankImageMediaTest(TestCase):
 
         self.assertContains(response, '/media/banks/media.png')
 
+    def test_bank_without_image_uses_static_logo(self):
+        Bank.objects.create(name='Sberbank')
+
+        response = self.client.get(reverse('banks'))
+
+        self.assertContains(response, '/static/banks/sberbank.svg')
+
+    def test_migrated_bundled_logo_uses_static_url(self):
+        Bank.objects.create(name='Sberbank', image='banks/sberbank.svg')
+
+        response = self.client.get(reverse('banks'))
+
+        self.assertContains(response, '/static/banks/sberbank.svg')
+        self.assertNotContains(response, '/media/banks/sberbank.svg')
+
+    def test_bank_static_logo_fallback_is_case_insensitive(self):
+        bank = Bank.objects.create(name='sberbank')
+
+        self.assertEqual(bank.image_url, '/static/banks/sberbank.svg')
+
+    def test_bank_without_image_and_unknown_name_has_no_logo_url(self):
+        bank = Bank.objects.create(name='Local Credit Union')
+
+        self.assertIsNone(bank.image_url)
+
     def test_bank_form_accepts_logo_upload(self):
         bank = Bank.objects.create(name='Upload Bank')
 

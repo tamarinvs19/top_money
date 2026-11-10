@@ -12,11 +12,11 @@ class BankAdmin(admin.ModelAdmin):
 
     @admin.display(description='Logo')
     def logo_preview(self, obj):
-        if not obj.image:
+        if not obj.image_url:
             return '-'
         return format_html(
             '<img src="{}" style="width: 32px; height: 32px; object-fit: contain;" />',
-            obj.image.url,
+            obj.image_url,
         )
 
 

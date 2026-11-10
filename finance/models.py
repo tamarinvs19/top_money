@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 
 from django.db import models
+from django.templatetags.static import static
 from model_utils.managers import InheritanceManager
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -17,6 +18,16 @@ class Bank(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def image_url(self):
+        static_filename = BANK_STATIC_LOGOS.get(self.name.casefold())
+        image_name = self.image.name if self.image else None
+        if static_filename and image_name in (None, f'banks/{static_filename}'):
+            return static(f'banks/{static_filename}')
+        if self.image:
+            return self.image.url
+        return None
 
 
 CASHBACK_CATEGORIES = [
@@ -82,6 +93,10 @@ BANKS = [
     ('DOM.RF Bank', 'domrf.svg'),
     ('Svoi Bank', 'svoi.svg'),
 ]
+
+BANK_STATIC_LOGOS = {
+    name.casefold(): filename for name, filename in BANKS
+}
 
 
 class Provider(models.Model):
